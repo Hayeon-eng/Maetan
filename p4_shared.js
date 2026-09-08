@@ -101,6 +101,8 @@ function renderEnding(){
   }
   $('#app').innerHTML = `${topbar('사건의 진상','#/')}${modebar('ending','네 가지 진실 · 2036.10.28 그날 밤')}<main class="wrap" style="padding-top:16px">
     ${endingBody()}
+    <div class="section-h" style="margin-top:24px"><span>최종 점수 랭킹</span></div>
+    ${finaleRankingLight()}
     ${me()?`<a class="rowbtn grade" href="#/grade"><div><b>✅ 채점하기</b><span>정답 항목을 체크해 점수를 확정합니다</span></div><span class="chev">›</span></a>`:''}
     <p class="foot">${esc(META.version)}</p></main>`;
 }

@@ -66,21 +66,20 @@ function scoreOf(d){
 function renderGrade(){
   const ch = me() ? byId(me()) : null; if(!ch){ location.hash='#/'; return renderHome(); }
   setMode('grade');
-  const d = ded(); const endingOpen = !!roundsOpen().ending;
+  const d = ded(); const canGrade = !!roundsOpen().ending;
   let body;
   if(!d.submitted){
     body = `<div class="gate"><h2 style="margin:0 0 8px">아직 제출한 추리가 없습니다</h2><p style="font-family:var(--mono);color:var(--dim);font-size:13px;margin-bottom:14px">FINAL에 네 항목을 적고 제출한 뒤 채점할 수 있습니다.</p><a class="btn" href="#/me/deduce">추리 탭으로</a></div>`;
-  } else if(!endingOpen){
+  } else if(!canGrade){
     body = `<div class="gate"><div class="seal" style="display:inline-block;transform:rotate(-8deg);color:var(--red);border:3px solid var(--red);border-radius:6px;padding:4px 14px;font-weight:900;letter-spacing:.2em;margin-bottom:10px">SEALED</div>
-      <h2 style="margin:0 0 6px">엔딩 코드</h2><div class="gmsg" id="gmsg">모두 제출한 뒤 진행자가 알려줍니다. 코드를 넣으면 엔딩북이 열리고 채점이 시작됩니다.</div>
-      <div class="pinrow"><input id="pin" type="tel" inputmode="numeric" maxlength="4" placeholder="····"></div><button class="btn" onclick="tryEndingFromGrade()">개봉</button></div>`;
+      <h2 style="margin:0 0 6px">채점 대기</h2><div class="gmsg">진행자가 FINAL을 종료하고 ENDING 단계로 넘기면 채점이 열립니다. 잠시만 기다려 주세요.</div></div>`;
   } else if(!d.graded){
     body = gradeForm(d);
   } else {
     body = gradeResult(ch, d);
   }
   $('#app').innerHTML = `${topbar('최종 채점 · '+ch.name,'#/')}${modebar('grade', ch.name+'의 답안을 정답과 대조합니다')}<main class="wrap" style="padding-top:16px">${body}</main>`;
-  if(!d.submitted || endingOpen) return;
+  return;
   const inp=$('#pin'); if(inp){ inp.focus(); inp.addEventListener('input',()=>{ if(inp.value.length===4) tryEndingFromGrade(); }); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') tryEndingFromGrade(); }); }
 }
 function tryEndingFromGrade(){ if($('#pin').value.trim()===META.roundCodes.ending){ const r=store.get('rounds',{}); r.ending=true; store.set('rounds',r); renderGrade(); } else { const m=$('#gmsg'); m.className='gmsg err'; m.textContent='코드가 맞지 않습니다'; $('#pin').value=''; } }
@@ -115,10 +114,16 @@ function gradeResult(ch, d){
       ${SYNC? `<div class="autosent ${store.get(K('autosent'))?'ok':''}">${store.get(K('autosent'))?'✅ 진행자에게 자동 전송되었습니다':'⏳ 진행자에게 전송 중… (실패 시 아래 버튼으로 보내세요)'}</div>`:''}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn big" style="flex:1;background:var(--red)" onclick="shareSub()">📨 ${SYNC?'카톡으로도 보내기':'진행자에게 결과 보내기'}</button><button class="btn ghost sm" onclick="unGrade()">채점 수정</button></div>
       <p class="small" style="margin:10px 0 0">버튼을 누르면 내 이름·판정·점수·답안이 적힌 메시지가 만들어지고 공유 창(카톡 등)이 열립니다. 진행자에게 보내면 됩니다. 메시지 맨 아래 한 줄은 진행자 집계용 코드입니다.</p></div>
-    <a class="rowbtn" href="#/ending"><div><b>📖 엔딩북 다시 보기</b></div><span class="chev">›</span></a>
-    ${(SSTATE&&SSTATE.finale)? `<button class="rowbtn finale" onclick="playFinale()"><div><b>🎬 최종 연출 보기</b><span>진행자가 최종 연출을 시작했습니다</span></div><span class="chev">›</span></button>`:'<p class="hint" style="text-align:center">진행자가 최종 연출을 시작하면 여기에서 볼 수 있습니다.</p>'}`;
+    ${(SSTATE&&SSTATE.finale)? `<button class="rowbtn finale" onclick="playFinale()"><div><b>🎬 최종 연출 보기</b><span>진행자가 최종 연출을 시작했습니다 · 다시 보려면 여기</span></div><span class="chev">›</span></button>`:'<div class="panel c-amb"><h3>✅ 채점 완료 · 연출 대기</h3><p style="margin:0;font-size:15px">모두 채점이 끝나면 <b>진행자가 최종 연출을 시작</b>합니다. 그때 이 화면에서 판결 → 진범 → 결말이 자동으로 재생됩니다.</p></div>'}`;
 }
 /* ===== FINALE (각자 폰, 범인 정답/오답 분기) ===== */
+function finaleRankingLight(){
+  const res = allResults(); const subs=(SSTATE&&SSTATE.subs)||{};
+  const rows = Object.keys(res).map(id=>{ const sub=Object.values(subs).find(v=>v.id===id); const t=(id===me()? scoreOf(ded()).total : (sub?sub.t:null)); return {id, name:byId(id)?.name||id, t:t==null?-1:t}; });
+  if(!rows.length) return '<p class="hint">아직 채점 결과가 없습니다.</p>';
+  rows.sort((a,b)=>b.t-a.t); const medal=i=>['🥇','🥈','🥉'][i]||`${i+1}`;
+  return `<div class="rankcard">${rows.map((r,i)=>`<div class="rank-row ${r.id===me()?'me':''} ${i===0?'top':''}"><span class="rk">${medal(i)}</span><span class="rn">${esc(r.name)}${r.id===me()?' (나)':''}</span><span class="rs">${r.t<0?'-':r.t+'/4'}</span></div>`).join('')}</div>`;
+}
 function finaleRanking(){
   const res = allResults(); const subs=(SSTATE&&SSTATE.subs)||{};
   const rows = Object.keys(res).map(id=>{ const sub=Object.values(subs).find(v=>v.id===id); const t = (id===me()? scoreOf(ded()).total : (sub? sub.t : null)); const l=(id===me()? scoreOf(ded()).label : (sub? sub.l : null)); return {id, name:byId(id)?.name||id, t: t==null?-1:t, l}; });
@@ -160,7 +165,10 @@ function playFinale(){
     <div class="bars-anim" aria-hidden="true">${Array.from({length:9},()=>'<i></i>').join('')}</div>
     <div class="fstage">
       <div class="fline1">${justice?'판결 — 유죄':'판결 — 오심'}</div>
-      <div class="fspot"><div class="mug"><img src="${img('photo_'+jailedId)}" alt=""><div class="board">GUILTY</div></div></div>
+      <div class="fspot ${justice?'justice':'wrong'}">
+        ${justice?'<div class="confetti" aria-hidden="true">'+Array.from({length:24},(_,k)=>`<i style="--i:${k}"></i>`).join('')+'</div>':'<div class="shadow" aria-hidden="true" title="정체불명"><span>?</span></div>'}
+        <div class="mug"><img src="${img('photo_'+jailedId)}" alt=""><div class="board">GUILTY</div></div>
+      </div>
       <div class="fname">${esc(jailed?jailed.name:'?')} · 최다 득표 ${topN}표</div>
       <div class="fend ${justice?'true':'bad'}">${justice?'배심원단은 진범을 정확히 지목했다.':'배심원단은 엉뚱한 사람을 지목했다. 그는 억울하게 갇혔다.'}</div>
       <button class="btn" onclick="finaleStage2()">${justice?'▶ 진범 확인':'▶ 그렇다면, 진짜 범인은?'}</button>
@@ -201,11 +209,9 @@ function finaleStage2(){
       ${(!justice)?`<div class="misjudge">진범은 붙잡히지 않았다. ${esc((byId(jailedId)||{name:'다른 사람'}).name)}만 억울하게 갇힌 채, 이현선은 조용히 회사에 남았다.</div>`:''}
       <div class="fstory">${paras.map(p=>`<p class="${p.cls||''}${p.me?' mine':''}">${esc(p.t)}${p.me?' <span class="you">← 나</span>':''}</p>`).join('')}</div>
       <div class="fmeta">범인 지목 성공 ${winners.length}명 · 실패 ${losers.length}명</div>
-      ${finaleRanking()}
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px">
-        <button class="btn" onclick="document.getElementById('finale').remove();location.hash='#/ending'">📖 사건의 진상 보기</button>
-        <button class="btn ghost" onclick="document.getElementById('finale').remove()">닫기</button>
-      </div>
+      <div style="text-align:center;margin:16px 0 6px"><button class="btn big" onclick="location.hash='#/ending'">📖 사건의 진상 자세히 보기</button></div>
+      <div class="frank-wrap">${finaleRanking()}</div>
+      <div style="text-align:center;margin-top:14px"><button class="btn ghost" onclick="document.getElementById('finale').remove()">닫기</button></div>
     </div>`;
   requestAnimationFrame(()=>el.classList.add('go2'));
   if(navigator.vibrate) try{ navigator.vibrate([60,40,60,40,200]); }catch(e){}
@@ -213,7 +219,8 @@ function finaleStage2(){
 document.addEventListener('change', e=>{
   const t=e.target; if(t.matches && t.matches('.chk input')){ const d=ded(); d.grade[t.dataset.k]=d.grade[t.dataset.k]||[]; d.grade[t.dataset.k][+t.dataset.i]=t.checked; store.set(K('ded'),d); const sc=scoreOf(d); sc.s.forEach((v,k)=>{ const el=$('#gpt'+k); if(el) el.textContent=v; }); }
 });
-function finishGrade(){ const d=ded(); d.graded=true; store.set(K('ded'),d); renderGrade(); autoSubmit().then(()=>{ if(location.hash==='#/grade') renderGrade(); }); }
+function finishGrade(){ const d=ded(); d.graded=true; store.set(K('ded'),d); renderGrade(); autoSubmit().then(()=>{ if(location.hash==='#/grade') renderGrade(); });
+  if(SSTATE && SSTATE.finale){ setTimeout(()=>playFinale(), 400); } }
 async function autoSubmit(){ if(!SYNC||!me()) return; const ch=byId(me()); const d=ded(); const sc=scoreOf(d); const ok=await sput(`subs/${ch.id}`, {id:ch.id,n:ch.name,a1:d.a1,a2c:d.a2c,a2m:d.a2m,a3p:d.a3p,a3t:d.a3t,a4:d.a4,s:sc.s,t:sc.total,l:sc.label,at:new Date().toISOString().slice(0,16)}); store.set(K('autosent'), ok); }
 function unGrade(){ const d=ded(); d.graded=false; store.set(K('ded'),d); renderGrade(); }
 function b64e(s){ return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }

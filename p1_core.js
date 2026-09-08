@@ -52,7 +52,10 @@ onSync((st, prev)=>{
   if(st.finale && me() && store.get('finaleSeen',0)!==st.finale){
     const first = store.get('finaleSeen',0)===0 && lastRound===null;
     store.set('finaleSeen', st.finale);
-    if(!first) playFinale();
+    if(!first){
+      if(ded().graded){ playFinale(); }
+      else if(ded().submitted){ location.hash='#/grade'; renderGrade(); }  // 제출은 했는데 채점 전이면 채점화면으로
+    }
   }
   const h=location.hash;
   if(h.startsWith('#/inv/')) renderInv(h.split('/')[2]);
