@@ -1,3 +1,4 @@
+const GAME = (new URLSearchParams(location.search).get('g')||'v5').replace(/[^A-Za-z0-9]/g,'').slice(0,12) || 'v5';
 const mem = {};
 const NOPERSIST = new Set(['ok']);   // 잠금 상태는 저장하지 않음 → 열 때마다 번호 입력
 const store = {
@@ -7,10 +8,12 @@ const store = {
 const img = k => !IMG[k] ? '' : (IMG[k].startsWith('img/') ? IMG[k] : `data:image/jpeg;base64,${IMG[k]}`);
 const esc = s => String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const $ = sel => document.querySelector(sel);
+CHARS.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
 const byId = id => CHARS.find(c=>c.id===id);
 function acc(title, body, open, id){ return `<div class="acc ${open?'open':''}" ${id?`id="${id}"`:''}><button onclick="this.parentNode.classList.toggle('open')"><span>${title}</span><span class="chev">›</span></button><div class="body">${body}</div></div>`; }
 function topbar(title, act){ return `<header class="top"><div class="wrap"><div class="ttl">${esc(title)}</div>${act||''}</div></header>`; }
-window.addEventListener('DOMContentLoaded', render);
+window.addEventListener('DOMContentLoaded', ()=>{ render(); startSync(3000); });
+onSync(()=>{ if(store.get('ok',false)){ const el=document.getElementById('live'); if(el) el.innerHTML=liveBoard(); const s=document.getElementById('subsbody'); if(s) s.innerHTML=hostSubs(); } });
 
 function render(){
   document.body.dataset.mode='host';
@@ -27,6 +30,8 @@ function render(){
   ${topbar('진행자 전용', `<button class="act" onclick="store.set('ok',false);render()">잠금</button>`)}
   <div class="modebar host"><span class="ic">🎬</span><b>FACILITATOR ONLY</b><span class="tx">플레이어에게 이 화면을 보이지 마세요</span></div>
   <main class="wrap" style="padding-top:16px">
+    ${SYNC? acc('라운드 진행 · 실시간', `<div id="live">${liveBoard()}</div>`, true)
+          : `<div class="warn">실시간 동기화가 꺼져 있습니다(data/config.js의 SYNC_URL 미설정). 라운드 코드 방식으로 진행하며, 제출 결과는 카톡 메시지로 받습니다.</div>`}
     ${acc('코드 한눈에 보기', `<table class="pinlist">
       <tr><td>ROUND 1 · 현장 구조도 + 발견 브리핑</td><td></td><td>${rc.r1}</td></tr>
       <tr><td>ROUND 2 · 1차 감식 <span class="small">플레이어 토큰 +1</span></td><td></td><td>${rc.r2}</td></tr>
@@ -38,7 +43,7 @@ function render(){
     ${acc('라운드 타이머', `<div class="timer"><div class="tdisp mono" id="tdisp">25:00</div>
       <div class="tbtns">${[15,20,25].map(m=>`<button class="btn ghost sm" onclick="setTimer(${m})">${m}분</button>`).join('')} <button class="btn sm" onclick="toggleTimer()" id="tgo">시작</button></div>
       <p class="hint">권장: 시작 15 · R1 20 · R2 25 · R3 25 · R4 25 · FINAL 15 · 엔딩 15 (총 140분). 0이 되면 화면이 깜빡입니다.</p></div>`)}
-    ${acc('최종 추리 제출 현황', hostSubs(), false, 'acc-subs')}
+    ${acc('최종 추리 제출 현황', `<div id="subsbody">${hostSubs()}</div>`, false, 'acc-subs')}
     ${acc('라운드 카드 · 내용', HOST_CARDS.map(c=>`<div class="env open ${c.key==='final'?'final':''}"><div class="hh"><span>${esc(c.round)} · <b>${esc(c.title)}</b></span><span class="code">${rc[c.key]}</span></div><img src="${img(c.img)}" alt="" onclick="openZoom(this.src)"><div class="ht">${esc(c.text)}</div></div>`).join(''))}
     ${acc('캐릭터 번호(PIN) 목록', `<p class="hint">번호는 무작위 2자리입니다. 배정한 플레이어에게만 개별로 알려주세요. 진행자 번호는 ${META.hostPin}.</p><table class="pinlist">${CHARS.map(ch=>`<tr><td>${esc(ch.name)}</td><td class="small">${esc(ch.group)}</td><td>${ch.pin}</td></tr>`).join('')}</table>`)}
     ${acc('세팅 · 시작 전 5분 체크', `<dl class="kv">${HOST.setup.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`)}
@@ -49,6 +54,7 @@ function render(){
     ${acc('9~12인 조정', `<dl class="kv">${HOST.playerCount.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`)}
     ${acc('게임 초기화 · 새 게임 시작', `<p class="hint">서버가 없어 플레이어 폰을 원격으로 지울 수는 없습니다. 대신 <b>새 게임 코드</b>가 붙은 링크를 배포하면, 그 링크로 여는 모든 폰이 깨끗한 상태로 시작합니다. (이전 링크의 기록은 남지만 새 링크에는 영향이 없습니다.)</p>
       <div class="panel"><h3>플레이어용 링크</h3><div class="codebox" id="glink">${esc(playerLink())}</div>
+        ${SYNC?`<p class="small" style="margin:8px 0 0">진행자도 같은 게임 코드로 열어야 합니다: <a href="${esc(hostLink())}" style="color:var(--red)">${esc(hostLink())}</a></p>`:''}
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn ghost sm" onclick="copyText(document.getElementById('glink').textContent)">링크 복사</button><button class="btn sm" onclick="newGame()">새 게임 코드 만들기</button></div></div>
       <div class="panel c-red"><h3>이 기기(진행자) 초기화</h3><p style="margin:0 0 8px;font-size:14px">제출 현황·타이머를 지웁니다.</p><button class="btn ghost sm" onclick="resetHost()">진행자 데이터 초기화</button></div>
       <div class="panel"><h3>플레이어 폰에서 직접 초기화</h3><p style="margin:0;font-size:14px">각 플레이어는 홈 맨 아래 <b>이 기기 데이터 초기화</b>로 자기 폰의 캐릭터·토큰·메모·추리를 지울 수 있습니다.</p></div>`)}
@@ -78,10 +84,10 @@ function tickTimerUI(){
 function b64d(s){ s=s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; return decodeURIComponent(escape(atob(s))); }
 function decodeSubs(txt){ const out=[]; (txt.match(/MM36:[A-Za-z0-9_\-]+/g)||[]).forEach(c=>{ try{ out.push(JSON.parse(b64d(c.slice(5)))); }catch(e){} }); return out; }
 function hostSubs(){
-  const subs = store.get('subs', {}); const list = Object.values(subs);
+  const subs = Object.assign({}, store.get('subs', {}), (SSTATE&&SSTATE.subs)||{}); const list = Object.values(subs);
   const lbl = l => ({perfect:'PERFECT',true:'TRUE END',fail:'미해결'}[l]||'-');
   const nm = id => byId(id)?.name || '-';
-  return `<p class="hint">플레이어가 추리 탭에서 채점 확정 후 보낸 코드(MM36:…)를 붙여넣고 <b>반영</b>을 누르세요. 여러 개를 한 번에 붙여도 됩니다.</p>
+  return `<p class="hint">${SYNC?'실시간 동기화 중에는 플레이어가 채점을 확정하면 자동으로 표에 들어옵니다. 실패한 경우에만 아래에 메시지를 붙여넣으세요.':''} 플레이어가 채점 후 보낸 카톡 메시지를 <b>그대로</b> 붙여넣고 <b>반영</b>을 누르세요. 메시지 끝의 집계코드를 읽어 표에 넣습니다. 여러 명 것을 한 번에 붙여도 됩니다.</p>
   <textarea class="memo" id="subin" style="min-height:70px" placeholder="MM36:eyJpZCI6..."></textarea>
   <div style="text-align:right;margin:8px 0 14px"><button class="btn ghost sm" onclick="if(confirm('제출 현황을 모두 지울까요?')){store.set('subs',{});render();}">모두 지우기</button> <button class="btn sm" onclick="addSubs()">반영</button></div>
   ${list.length? `<table class="subs"><tr><th>플레이어</th><th>범인</th><th>점수</th><th>판정</th></tr>${list.map((s,i)=>`<tr onclick="const d=document.getElementById('sd${i}');d.style.display=d.style.display==='none'?'block':'none'"><td><b>${esc(s.n)}</b><div class="small">${esc(s.at||'')}</div></td><td>${esc(nm(s.a2c))} ${byId(s.a2c)?.name===HOST.rubric[1].culprit?'✓':'✗'}</td><td class="mono">${s.t==null?'-':s.t+'/4'}</td><td><span class="tag ${s.l}">${lbl(s.l)}</span></td></tr>
@@ -95,6 +101,35 @@ function addSubs(){
 }
 
 function playerLink(){ const g=store.get('game','') ; const base=location.href.replace(/[^\/]*$/,'')+'index.html'; return g? base+'?g='+g : base; }
-function newGame(){ const g=Math.random().toString(36).slice(2,6).toUpperCase(); store.set('game',g); store.set('subs',{}); store.set('tEnd',null); store.set('tLeft',25*60); render(); const el=document.querySelectorAll('.acc'); el.forEach(a=>{ if(a.querySelector('button span')?.textContent.startsWith('게임 초기화')) a.classList.add('open'); }); alert('새 게임 코드 '+g+' 생성. 플레이어에게 새 링크를 공유하세요.'); }
+function hostLink(){ const g=store.get('game',''); return g? location.href.split('?')[0]+'?g='+g : location.href.split('?')[0]; }
+function newGame(){ const g=Math.random().toString(36).slice(2,6).toUpperCase(); store.set('game',g); if(SYNC) sput('', {round:'lobby'}); store.set('subs',{}); store.set('tEnd',null); store.set('tLeft',25*60); render(); const el=document.querySelectorAll('.acc'); el.forEach(a=>{ if(a.querySelector('button span')?.textContent.startsWith('게임 초기화')) a.classList.add('open'); }); alert('새 게임 코드 '+g+' 생성. 플레이어에게 새 링크를 공유하세요.'); }
 function resetHost(){ if(confirm('진행자 데이터(제출 현황·타이머)를 지울까요?')){ store.set('subs',{}); store.set('tEnd',null); store.set('tLeft',25*60); render(); } }
 async function copyText(t){ try{ await navigator.clipboard.writeText(t); alert('복사했습니다.'); }catch(e){ prompt('복사하세요', t); } }
+
+/* ===== 실시간 진행 보드 ===== */
+const RNAME = {lobby:'대기(시작 전)', r1:'ROUND 1', r2:'ROUND 2', r3:'ROUND 3', r4:'ROUND 4', final:'FINAL', ending:'ENDING'};
+function liveBoard(){
+  const st = SSTATE||{}; const cur = st.round||'lobby'; const idx=ROUND_ORDER.indexOf(cur);
+  const next = ROUND_ORDER[idx+1];
+  const claims = st.claims||{}; const shared = st.shared||{}; const subs = st.subs||{};
+  const nm = id => byId(id)?.name||'?';
+  const initials = id => nm(id).slice(0,1);
+  return `<div class="livehead"><div><div class="lbl">현재</div><div class="cur">${RNAME[cur]}</div></div>
+      ${next? `<button class="btn big" onclick="advanceRound('${next}')">${cur==='lobby'?'ROUND 1 시작':(RNAME[cur]+' 종료 → '+RNAME[next]+' 시작')}</button>` : '<span class="small">모든 단계가 끝났습니다</span>'}
+    </div>
+    <div class="rsteps">${ROUND_ORDER.slice(1).map((k,i)=>`<span class="${i+1<=idx?'done':''} ${k===cur?'now':''}">${RNAME[k].replace('ROUND ','R')}</span>`).join('')}</div>
+    <p class="hint">버튼을 누르면 모든 플레이어 폰에 “${RNAME[cur]} 종료 → 다음 라운드 시작” 화면이 뜨고, 해당 라운드 카드와 조사 토큰이 자동으로 열립니다. 잘못 눌렀으면 아래 되돌리기.</p>
+    ${idx>0? `<div style="text-align:right;margin:-6px 0 10px"><button class="lnk small" onclick="if(confirm('${RNAME[ROUND_ORDER[idx-1]]}(으)로 되돌릴까요?')) advanceRound('${ROUND_ORDER[idx-1]}')">← ${RNAME[ROUND_ORDER[idx-1]]}(으)로 되돌리기</button></div>`:''}
+    <h3 class="subh">조사 현황 · 누가 어떤 단서를 열었나</h3>
+    <table class="claims"><tr><th>단서 소유자</th><th>1</th><th>2</th><th>3</th></tr>
+      ${CHARS.map(ch=>`<tr><td>${esc(ch.name)}</td>${[0,1,2].map(i=>{ const c=claims[ch.id+'_'+i]; const sh=Object.values(shared).filter(v=>v&&v.o===ch.id&&v.i===i); return `<td class="${c?'taken':''}" title="${c?nm(c.by)+' 조사':''}">${c?`<b>${esc(nm(c.by))}</b>`:'<span class="dim">—</span>'}${sh.length?`<div class="shd">📣 ${sh.map(v=>v.to==='all'?'전체':nm(v.to)).join(', ')}</div>`:''}</td>`; }).join('')}</tr>`).join('')}
+    </table>
+    <p class="hint">열린 단서 ${Object.keys(claims).length}/36 · 공개 ${Object.keys(shared).length}건 · 제출 ${Object.keys(subs).length}/12</p>`;
+}
+async function advanceRound(next){
+  if(!SYNC) return;
+  const ok = await sput('round', next) && await sput('roundAt', Date.now());
+  if(!ok){ alert('전송 실패. 네트워크를 확인하세요.'); return; }
+  await pollOnce(); const el=document.getElementById('live'); if(el) el.innerHTML=liveBoard();
+  const c=document.querySelector('.livehead .cur'); if(c){ c.classList.add('flash'); setTimeout(()=>c.classList.remove('flash'),1200); }
+}
