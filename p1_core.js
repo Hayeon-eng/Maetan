@@ -35,6 +35,14 @@ window.addEventListener('hashchange', route);
 window.addEventListener('DOMContentLoaded', ()=>{ route(); startSync(3000); });
 let lastRound = null;
 onSync((st, prev)=>{
+  if(st.reset && store.get('resetSeen',0)!==st.reset){
+    store.set('resetSeen', st.reset);
+    try{ Object.keys(localStorage).filter(k=>k.startsWith(PFX)&&!k.endsWith(':resetSeen')&&!k.endsWith(':seenRound')).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+    for(const k in mem) if(k!=='resetSeen') delete mem[k];
+    location.hash='#/'; renderHome();
+    const el=document.createElement('div'); el.className='rov'; el.innerHTML='<div class="rov-in"><div class="rov-stamp" style="color:var(--red);border-color:var(--red)">초기화</div><div class="rov-desc">진행자가 게임을 초기화했습니다.</div><button class="btn" onclick="this.closest(\'.rov\').remove()">확인</button></div>'; document.body.appendChild(el);
+    return;
+  }
   const r = st.round||'lobby';
   if(lastRound===null){ lastRound = store.get('seenRound', 'lobby'); }
   if(r!==lastRound){

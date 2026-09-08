@@ -56,8 +56,8 @@ function render(){
       <div class="panel"><h3>플레이어용 링크</h3><div class="codebox" id="glink">${esc(playerLink())}</div>
         ${SYNC?`<p class="small" style="margin:8px 0 0">진행자도 같은 게임 코드로 열어야 합니다: <a href="${esc(hostLink())}" style="color:var(--red)">${esc(hostLink())}</a></p>`:''}
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn ghost sm" onclick="copyText(document.getElementById('glink').textContent)">링크 복사</button><button class="btn sm" onclick="newGame()">새 게임 코드 만들기</button></div></div>
-      <div class="panel c-red"><h3>이 기기(진행자) 초기화</h3><p style="margin:0 0 8px;font-size:14px">제출 현황·타이머를 지웁니다.</p><button class="btn ghost sm" onclick="resetHost()">진행자 데이터 초기화</button></div>
-      <div class="panel"><h3>플레이어 폰에서 직접 초기화</h3><p style="margin:0;font-size:14px">각 플레이어는 홈 맨 아래 <b>이 기기 데이터 초기화</b>로 자기 폰의 캐릭터·토큰·메모·추리를 지울 수 있습니다.</p></div>`)}
+      <div class="panel c-red"><h3>전체 초기화</h3><p style="margin:0 0 8px;font-size:14px">${SYNC?'진행자 데이터와 <b>모든 플레이어 폰</b>을 초기화합니다(플레이어는 새로고침 시 적용).':'진행자 데이터(제출·타이머·라운드)를 지웁니다. 동기화가 꺼져 있어 플레이어 폰은 각자 초기화해야 합니다.'}</p><button class="btn" style="background:var(--red)" onclick="resetHost()">전체 초기화</button></div>
+      <div class="panel"><h3>플레이어 개별 초기화</h3><p style="margin:0;font-size:14px">각 플레이어도 홈 맨 아래 <b>이 기기 데이터 초기화</b>로 자기 폰만 지울 수 있습니다.</p></div>`)}
     ${acc('엔딩북', `<div class="ending">${HOST.ending.truths.map(([k,v])=>`<div class="panel c-red"><h3>${esc(k)}</h3><p style="margin:0;font-size:15px">${esc(v)}</p></div>`).join('')}${HOST.ending.deep.map(([k,v])=>`<div class="panel c-mou"><h3>${esc(k)}</h3><p style="margin:0;font-size:15px">${esc(v)}</p></div>`).join('')}<div class="panel"><h3>각 인물의 밤</h3><dl class="kv">${HOST.ending.aftermath.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div></div>`)}
     <p class="foot">${esc(META.version)} · HOST</p>
   </main>`;
@@ -103,7 +103,12 @@ function addSubs(){
 function playerLink(){ const g=store.get('game','') ; const base=location.href.replace(/[^\/]*$/,'')+'index.html'; return g? base+'?g='+g : base; }
 function hostLink(){ const g=store.get('game',''); return g? location.href.split('?')[0]+'?g='+g : location.href.split('?')[0]; }
 function newGame(){ const g=Math.random().toString(36).slice(2,6).toUpperCase(); store.set('game',g); if(SYNC) sput('', {round:'lobby'}); store.set('subs',{}); store.set('tEnd',null); store.set('tLeft',25*60); render(); const el=document.querySelectorAll('.acc'); el.forEach(a=>{ if(a.querySelector('button span')?.textContent.startsWith('게임 초기화')) a.classList.add('open'); }); alert('새 게임 코드 '+g+' 생성. 플레이어에게 새 링크를 공유하세요.'); }
-function resetHost(){ if(confirm('진행자 데이터(제출 현황·타이머)를 지울까요?')){ store.set('subs',{}); store.set('tEnd',null); store.set('tLeft',25*60); render(); } }
+async function resetHost(){
+  if(!confirm('전체 초기화할까요?\n- 진행자: 제출 현황·타이머·라운드 리셋\n'+(SYNC?'- 모든 플레이어 폰: 다음 새로고침 때 캐릭터·토큰·단서·추리가 초기화됩니다':'- (동기화 꺼짐) 플레이어 폰은 각자 홈 맨 아래 초기화 버튼으로 지워야 합니다'))) return;
+  store.set('subs',{}); store.set('tEnd',null); store.set('tLeft',25*60);
+  if(SYNC){ await sput('', {round:'lobby', reset: Date.now()}); await pollOnce(); }
+  render(); alert(SYNC? '초기화했습니다. 플레이어 폰은 화면을 새로고침하면 깨끗한 상태가 됩니다.' : '진행자 데이터를 초기화했습니다.');
+}
 async function copyText(t){ try{ await navigator.clipboard.writeText(t); alert('복사했습니다.'); }catch(e){ prompt('복사하세요', t); } }
 
 /* ===== 실시간 진행 보드 ===== */

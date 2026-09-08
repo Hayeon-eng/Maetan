@@ -301,3 +301,23 @@ details summary::-webkit-details-marker{display:none}
 .claims .shd{font-size:10px;color:var(--han)}
 
 .livehead .cur.flash{animation:blink .3s steps(1) 4}
+
+/* ===== 흰 배경 = 무조건 잉크색 글씨 (화이트온화이트 방지) ===== */
+.acc .body, .acc .body p, .acc .body li, .acc .body dd, .acc .body dt, .acc .body h3, .acc .body span,
+.panel, .panel *, .clue, .clue *, .env, .ht, .doc, .doc *, .gstep, .gstep *, .gintro, .gintro *,
+.mecard:not(.empty), .mecard:not(.empty) *, .sh, .sh *, .fld .ans, .subdetail, .codebox, .key, .warn,
+.npc, .npc *, .rel div, .npcline, .alibi-list, .alibi-list *, .kv, .kv *, .tgrid, .tgrid *,
+.pubtop, .pubtop *, .back .bb, .back .bb *, .result, .result * { color: var(--ink); }
+/* 위 규칙보다 뒤에 와서 되살리는 예외: 색 배지·헤더·버튼·강조 */
+.badge, .b-han, .b-mou, .b-non, .b-red, .btn, .btn *, .ev, .tl .t, .code, .rov *, .modebar, .modebar *,
+.env.open .hh, .env.open .hh *, .tgrid .h, .clue .ev, .subs .tag, .result .big, .result .big *,
+.hl, .ul, .rev.on, .lnk, .seg button.on, .stamp, .rov-stamp, .seal, .rsteps span,
+.result .who, .result .sc, .result .sub, .autosent, .autosent.ok, .codebox, .gstep .gpt, .gstep .gn,
+.gstep .qlabel, .fld .ans.empty, .small, .hint, .kv dd, a[style*="color"], [class*="c-"] h3 { color: unset; }
+.badge.b-han,.badge.b-mou,.badge.b-red{color:#fff}
+.b-non{color:#5b534c}
+.btn{color:#fff}.btn.ghost{color:var(--red)}.btn.inv{color:#1d1608}
+.result .big.true{color:var(--han)}.result .big.perfect{color:#a67b2a}.result .big.fail{color:#8a7f73}
+.codebox{color:var(--muted)}.small,.hint{color:var(--muted)}
+.env.open .hh, .env.open .hh *{color:#fff}
+.rov-stamp{color:var(--amber)}.rov-end{color:var(--dim)}.rov-desc{color:var(--dim)}.rov-sub{color:var(--paper)}
