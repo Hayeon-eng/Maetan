@@ -81,11 +81,11 @@ function paneAcq(ch){
     <div class="coderow"><input id="recvcode" type="text" inputmode="numeric" placeholder="05-2" maxlength="5"><button class="btn sm" onclick="addRecv()">추가</button></div></div>
 
   <h3 class="subh">토큰으로 조사한 단서 · ${list.length}장</h3>
-  ${list.length? list.map(a=>{ const o=byId(a.o); const c=o.clues[a.i]; return clueCard(o,c,a.i,{foot:`<div class="cf"><span class="small">${esc(a.at||'')} 조사 · <a class="lnk small" href="#/inv/${o.id}">${esc(o.name)} 더 조사</a></span><button class="btn sm" onclick="shareClue('${o.id}',${a.i})">📣 공개하기</button></div>`}); }).join('')
+  ${list.length? list.map(a=>{ const o=a.o==='yeongyu'?YEONGYU:byId(a.o); const c=o.clues[a.i]; return clueCard(o,c,a.i,{foot:`<div class="cf"><span class="small">${esc(a.at||'')} 조사${a.o==='yeongyu'?' (이연규·불참)':` · <a class="lnk small" href="#/inv/${o.id}">${esc(o.name)} 더 조사</a>`}</span><button class="btn sm" onclick="shareClue('${o.id}',${a.i})">📣 공개하기</button></div>`}); }).join('')
     : `<div class="panel"><p style="margin:0;font-size:14px">아직 없습니다. 홈에서 다른 캐릭터 카드를 뒤집고 <b>🔍 단서 조사</b>를 누르면 토큰 1개로 그 사람의 단서 1장을 열어볼 수 있습니다.</p></div>`}
 
   <h3 class="subh">공개받은 단서 · ${recv.length}장</h3>
-  ${recv.length? recv.map(a=>{ const o=byId(a.o); const c=o.clues[a.i]; return clueCard(o,c,a.i,{foot:`<div class="cf"><span class="small">${esc(a.at||'')} ${a.auto?(byId(a.from)?.name||'')+'가 공개':'코드로 받음'}</span>${a.auto?'':`<button class="lnk small" onclick="removeRecv('${a.o}',${a.i})">제거</button>`}</div>`}); }).join('')
+  ${recv.length? recv.map(a=>{ const o=a.o==='yeongyu'?YEONGYU:byId(a.o); const c=o.clues[a.i]; const oo=a.o==='yeongyu'?YEONGYU:byId(a.o); return clueCard(oo,c,a.i,{foot:`<div class="cf"><span class="small">${esc(a.at||'')} ${a.auto?(byId(a.from)?.name||'')+'가 공개':'코드로 받음'}</span>${a.auto?'':`<button class="lnk small" onclick="removeRecv('${a.o}',${a.i})">제거</button>`}</div>`}); }).join('')
     : `<div class="panel"><p style="margin:0;font-size:14px">아직 없습니다.</p></div>`}`;
 }
 function addRecv(){
@@ -172,11 +172,11 @@ async function investigate(ownerId, i){
   }
   const coins = document.querySelectorAll('#coins .coin:not(.ghost)');
   const coin = coins[coins.length-1]; if(coin) coin.classList.add('fly');
-  setTimeout(()=>{
+  tearEnvelope(i, ()=>{
     const acq = store.get(K('acq'), []); if(!acq.some(a=>a.o===ownerId&&a.i===i)) acq.push({o:ownerId,i,at:new Date().toTimeString().slice(0,5)}); store.set(K('acq'), acq);
     renderInv(ownerId);
     const el=$('#clue-'+i); if(el){ el.classList.add('reveal'); el.scrollIntoView({behavior:'smooth',block:'center'}); }
-  }, 560);
+  });
 }
 function openZoom(src){ $('#zoomimg').src=src; $('#zoom').classList.add('on'); }
 function closeZoom(){ $('#zoom').classList.remove('on'); }

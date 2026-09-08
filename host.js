@@ -120,17 +120,19 @@ function liveBoard(){
   const nm = id => byId(id)?.name||'?';
   const initials = id => nm(id).slice(0,1);
   return `<div class="livehead"><div><div class="lbl">현재</div><div class="cur">${RNAME[cur]}</div></div>
-      ${next? `<button class="btn big" onclick="advanceRound('${next}')">${cur==='lobby'?'ROUND 1 시작':(RNAME[cur]+' 종료 → '+RNAME[next]+' 시작')}</button>` : '<span class="small">모든 단계가 끝났습니다</span>'}
+      ${next? `<button class="btn big" onclick="advanceRound('${next}')">${cur==='lobby'?'ROUND 1 시작':(RNAME[cur]+' 종료 → '+RNAME[next]+' 시작')}</button>` : `<button class="btn big" style="background:var(--red)" onclick="startFinale()">🎬 최종 연출 시작(전원 폰)</button>`}
     </div>
+    ${cur==='ending'? `<p class="hint">전원 채점이 끝나면 위 버튼을 누르세요. 각자 폰에서 범인 정답/오답에 따라 검거·미제 연출이 재생됩니다.</p>`:''}
     <div class="rsteps">${ROUND_ORDER.slice(1).map((k,i)=>`<span class="${i+1<=idx?'done':''} ${k===cur?'now':''}">${RNAME[k].replace('ROUND ','R')}</span>`).join('')}</div>
     <p class="hint">버튼을 누르면 모든 플레이어 폰에 “${RNAME[cur]} 종료 → 다음 라운드 시작” 화면이 뜨고, 해당 라운드 카드와 조사 토큰이 자동으로 열립니다. 잘못 눌렀으면 아래 되돌리기.</p>
     ${idx>0? `<div style="text-align:right;margin:-6px 0 10px"><button class="lnk small" onclick="if(confirm('${RNAME[ROUND_ORDER[idx-1]]}(으)로 되돌릴까요?')) advanceRound('${ROUND_ORDER[idx-1]}')">← ${RNAME[ROUND_ORDER[idx-1]]}(으)로 되돌리기</button></div>`:''}
     <h3 class="subh">조사 현황 · 누가 어떤 단서를 열었나</h3>
     <table class="claims"><tr><th>단서 소유자</th><th>1</th><th>2</th><th>3</th></tr>
-      ${CHARS.map(ch=>`<tr><td>${esc(ch.name)}</td>${[0,1,2].map(i=>{ const c=claims[ch.id+'_'+i]; const sh=Object.values(shared).filter(v=>v&&v.o===ch.id&&v.i===i); return `<td class="${c?'taken':''}" title="${c?nm(c.by)+' 조사':''}">${c?`<b>${esc(nm(c.by))}</b>`:'<span class="dim">—</span>'}${sh.length?`<div class="shd">📣 ${sh.map(v=>v.to==='all'?'전체':nm(v.to)).join(', ')}</div>`:''}</td>`; }).join('')}</tr>`).join('')}
+      ${CHARS.concat([{id:'yeongyu',name:'이연규 (불참)'}]).map(ch=>`<tr><td>${esc(ch.name)}</td>${[0,1,2].map(i=>{ const c=claims[ch.id+'_'+i]; const sh=Object.values(shared).filter(v=>v&&v.o===ch.id&&v.i===i); return `<td class="${c?'taken':''}" title="${c?nm(c.by)+' 조사':''}">${c?`<b>${esc(nm(c.by))}</b>`:'<span class="dim">—</span>'}${sh.length?`<div class="shd">📣 ${sh.map(v=>v.to==='all'?'전체':nm(v.to)).join(', ')}</div>`:''}</td>`; }).join('')}</tr>`).join('')}
     </table>
-    <p class="hint">열린 단서 ${Object.keys(claims).length}/36 · 공개 ${Object.keys(shared).length}건 · 제출 ${Object.keys(subs).length}/12</p>`;
+    <p class="hint">열린 단서 ${Object.keys(claims).length}/33 · 공개 ${Object.keys(shared).length}건 · 제출 ${Object.keys(subs).length}/12</p>`;
 }
+async function startFinale(){ if(!SYNC) return; await sput('finale', Date.now()); alert('전원 폰에서 최종 연출을 재생합니다. (채점을 마친 사람만 보입니다)'); }
 async function advanceRound(next){
   if(!SYNC) return;
   const ok = await sput('round', next) && await sput('roundAt', Date.now());

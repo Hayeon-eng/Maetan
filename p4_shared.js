@@ -35,6 +35,32 @@ function alibiGraph(){
   <p class="hint" style="margin-top:8px">공개 진술에 나온 시간만 그렸습니다. 좌우로 밀어 볼 수 있고, 막대를 길게 누르면 내용이 보입니다.</p>`;
   return s;
 }
+function yeongyuBlock(){
+  const my = me()?byId(me()):null; const ts = tokenState();
+  const mineArr = my? store.get(K('acq'),[]).filter(a=>a.o==='yeongyu').map(a=>a.i):[];
+  const recvd = my? store.get(K('recv'),[]).concat(sharedForMe()).filter(a=>a.o==='yeongyu').map(a=>a.i):[];
+  let h = `<div class="npc"><img src="${img('photo_yeongyu')}" alt=""><div><div class="nm">이연규 <span class="badge b-non">불참</span></div><div class="rl">${esc(YEONGYU.group)} · ${esc(YEONGYU.title)} · ${esc(YEONGYU.faction)}</div><p class="small">공개 알리바이: “${esc(YEONGYU.alibi)}”</p><p>${esc(YEONGYU.publicInfo)}</p></div></div>`;
+  if(!my){ h+='<p class="hint">내 캐릭터를 설정하면 토큰으로 이연규의 단서를 조사할 수 있습니다.</p>'; return h; }
+  h += YEONGYU.clues.map((c,i)=>{
+    const cl=claimOf('yeongyu',i); const takenByOther = cl && cl.by!==my.id && !mineArr.includes(i);
+    if(mineArr.includes(i)) return clueCard(YEONGYU,c,i,{id:'yclue-'+i, foot:`<div class="cf"><span class="small">내가 조사함 · 획득 단서에 보관</span></div>`});
+    if(recvd.includes(i)) return clueCard(YEONGYU,c,i,{id:'yclue-'+i, foot:`<div class="cf"><span class="small">공유받음</span></div>`});
+    if(takenByOther) return `<div class="clue sealedc taken" id="yclue-${i}"><div class="ch"><b>조사 완료된 단서</b><span class="ev">이연규 · ${i+1}/3</span></div><div class="sealface"><div><div class="seal gray">TAKEN</div><p><b>${esc(byId(cl.by)?.name||'다른 플레이어')}</b> 님이 먼저 조사</p></div></div></div>`;
+    return `<div class="clue sealedc" id="yclue-${i}"><div class="ch"><b>봉인된 단서</b><span class="ev">이연규 · ${i+1}/3</span></div><div class="sealface"><div><div class="seal ${ts.left>0?'blink':''}">SEALED</div><p>${ts.left>0?'내 토큰 1개로 조사':'토큰 없음'}</p></div></div><div class="cf" style="padding-top:12px"><span class="small">열면 내 획득 단서에 남습니다</span><button class="btn inv sm" ${ts.left>0?'':'disabled style=\"opacity:.4\"'} onclick="investigateY(${i})">🪙 토큰 1개로 열기</button></div></div>`;
+  }).join('');
+  return h;
+}
+async function investigateY(i){
+  const ts=tokenState(); if(ts.left<=0) return;
+  const btn=document.querySelector(`#yclue-${i} .btn`); if(btn){ btn.disabled=true; btn.textContent='확인 중…'; }
+  if(SYNC){ const ok=await sclaim(`claims/yeongyu_${i}`, {by:me(), at:Date.now()}); if(!ok){ await pollOnce(); renderHome(); reopenY(i); return; } }
+  tearEnvelope2(i, ()=>{ const acq=store.get(K('acq'),[]); if(!acq.some(a=>a.o==='yeongyu'&&a.i===i)) acq.push({o:'yeongyu',i,at:new Date().toTimeString().slice(0,5)}); store.set(K('acq'),acq);
+    renderHome(); reopenY(i);
+    const el=$('#yclue-'+i); if(el){ el.classList.add('reveal'); el.scrollIntoView({behavior:'smooth',block:'center'}); }
+  });
+}
+function reopenY(i){ const a=[...document.querySelectorAll('.acc')].find(x=>x.querySelector('button span')?.textContent.includes('이연규')); if(a) a.classList.add('open'); }
+function tearEnvelope2(i, done){ const host=$('#yclue-'+i); if(!host){done();return;} const face=host.querySelector('.sealface')||host; const ov=document.createElement('div'); ov.className='tear'; ov.innerHTML='<div class="tf tl"></div><div class="tf tr"></div><div class="trip">개봉</div>'; face.style.position='relative'; face.appendChild(ov); requestAnimationFrame(()=>ov.classList.add('go')); if(navigator.vibrate)try{navigator.vibrate(30)}catch(e){} setTimeout(done,620); }
 function envelope(c,i,rounds,justOpened){
   const open = !!rounds[c.key];
   return `<div class="env ${open?'open':''} ${c.key==='final'?'final':''}" id="env-${i}">

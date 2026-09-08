@@ -49,6 +49,10 @@ onSync((st, prev)=>{
     if(roundIdx(r)>roundIdx(lastRound)) showRoundOverlay(lastRound, r, META.tokens[r]?`조사 토큰 +${META.tokens[r]}`:'');
     lastRound=r; store.set('seenRound', r);
   }
+  if(st.finale && store.get('finaleSeen',0)!==st.finale && me()){
+    store.set('finaleSeen', st.finale);
+    if(ded().graded) playFinale();
+  }
   const h=location.hash;
   if(h.startsWith('#/inv/')) renderInv(h.split('/')[2]);
   else if(h.startsWith('#/me/acq')) renderMe('acq');
@@ -109,6 +113,7 @@ function renderHome(){
 
     <div class="section-h"><span>공개 정보 · 누구나 볼 수 있음</span></div>
     ${acc('공용 NPC 카드 · 조성혁 / 김대현 / 정수환', NPCS.map(n=>`<div class="npc"><img src="${img(n.img)}" alt=""><div><div class="nm">${esc(n.name)} <span class="small">${esc(n.age)}</span></div><div class="rl">${esc(n.role)} · ${esc(n.faction)}</div><p>${esc(n.info)}</p><p class="small">${esc(n.note)}</p></div></div>`).join(''))}
+    ${acc('이연규 (불참 · 자동 공개) · 단서는 토큰으로 조사', yeongyuBlock())}
     ${acc('인물 관계도', `<div class="npcline">${esc(RELATIONS.npcLine)}</div><div class="rel">${CHARS.map(ch=>`<div><b>${esc(ch.name)}</b> ${fBadge(ch.faction)}<small>${esc(ch.group)}</small></div>`).join('')}</div><p class="small" style="margin:10px 0 0">${esc(RELATIONS.note)}</p>`)}
     ${acc('12명의 공개 알리바이 · 목록 / 시간별 그래프', `<div class="seg"><button class="${view==='list'?'on':''}" onclick="setAlibiView('list')">목록</button><button class="${view==='graph'?'on':''}" onclick="setAlibiView('graph')">시간별 그래프</button></div><div id="alibiwrap">${view==='graph'?alibiGraph():alibiList()}</div>`, false, 'acc-alibi')}
 

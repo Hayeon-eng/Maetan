@@ -49,13 +49,19 @@ function unsubmit(){ if(confirm('제출을 취소하고 수정할까요? (채점
 function scoreOf(d){
   const R = HOST_RUBRIC; const g = d.grade||{};
   const n = k => (g[k]||[]).filter(Boolean).length;
-  const s1 = n('c0')>=2?1:(n('c0')===1?0.5:0);
   const culpritOk = d.a2c && byId(d.a2c)?.name===R[1].culprit;
-  const s2 = culpritOk ? (n('c1')>=1?1:0.5) : 0;
-  const s3 = n('c2')>=2?1:0;
+  const s1 = n('c0')>=1?1:0;
+  const s2 = culpritOk ? 1 : 0;            // 범인 이름만 맞으면 정답
+  const s3 = n('c2')>=1?1:0;
   const s4 = n('c3')>=1?1:0;
   const total = s1+s2+s3+s4;
-  return {s:[s1,s2,s3,s4], total, label: total===4?'perfect':((s1===1&&s2===1&&total>=3)?'true':'fail'), culpritOk};
+  // 엔딩 분기: PERFECT 4/4 · TRUE 범인+2개↑ · NORMAL 범인만 · BAD 범인 못맞힘
+  let label = 'bad';
+  if(!culpritOk) label='bad';
+  else if(total===4) label='perfect';
+  else if(total>=3) label='true';
+  else label='normal';
+  return {s:[s1,s2,s3,s4], total, label, culpritOk};
 }
 function renderGrade(){
   const ch = me() ? byId(me()) : null; if(!ch){ location.hash='#/'; return renderHome(); }
@@ -82,34 +88,106 @@ function gradeForm(d){
   const R = HOST_RUBRIC; const g = d.grade||{}; const sc = scoreOf(d);
   const box = (k,i,txt) => `<label class="chk"><input type="checkbox" data-k="${k}" data-i="${i}" ${(g[k]||[])[i]?'checked':''}><span>${esc(txt)}</span></label>`;
   const myAns = {0:d.a1, 1:(d.a2c?byId(d.a2c).name+' · ':'')+d.a2m, 2:(d.a3p?byId(d.a3p).name+' · ':'')+d.a3t, 3:d.a4};
-  return `<div class="gintro"><b>채점 방법</b><br>항목마다 <b>내 답</b>이 위에 보입니다. 그 아래 정답 요소 중 <b>내 답에 들어 있는 것만</b> 체크하세요. 점수는 자동으로 계산됩니다. 정답 전문은 <a href="#/ending" style="color:var(--amber)">엔딩북</a>에서 확인할 수 있습니다.</div>
+  return `<div class="gintro"><b>이렇게 채점하세요</b><br>① 항목마다 내가 쓴 답이 위에 보여요.<br>② 아래 정답 목록 중 <b>내 답에 있는 것</b>에 체크하세요.<br>③ <b>하나만 맞아도 그 항목은 정답</b>이에요.<br>정답 전체 이야기는 <a href="#/ending" style="color:var(--amber)">엔딩북</a>에 있어요.</div>
   ${R.map((r,k)=>`<div class="gstep">
     <div class="gh"><span class="gn">${k+1}</span><b>${esc(r.item.replace(/^\d+\.\s*/,''))}</b><span class="gpt" id="gpt${k}">${sc.s[k]}</span></div>
-    <div class="myans"><label>내 답</label><div>${esc(myAns[k]||'(미작성)')}</div></div>
-    ${k===1?`<div class="key">정답 범인 <b>${esc(r.culprit)}</b> · 내 답 <b>${d.a2c?esc(byId(d.a2c).name):'-'}</b> → ${sc.culpritOk?'<span style="color:var(--han)">일치</span>':'<span style="color:var(--red)">불일치 (이 항목 0점)</span>'}</div>`:''}
-    <div class="qlabel">내 답에 이 내용이 있나요?</div>
+    <div class="myans"><label>✍️ 내가 쓴 답</label><div>${esc(myAns[k]||'(미작성)')}</div></div>
+    ${k===1?`<div class="key">진짜 범인은 <b>${esc(r.culprit)}</b>. 내가 고른 사람은 <b>${d.a2c?esc(byId(d.a2c).name):'(없음)'}</b> → ${sc.culpritOk?'<span style="color:var(--han)">맞았어요 ✅</span>':'<span style="color:var(--red)">틀렸어요 (범인을 못 맞히면 BAD END)</span>'}</div>`:''}
+    <div class="qlabel">내 답에 있는 내용 체크 (1개만 맞아도 정답)</div>
     <div class="checks">${r.checks.map((c,i)=>box('c'+k,i,c)).join('')}</div>
-    <div class="itemscore">점수 기준 · ${esc(r.rule)}</div>
+    <div class="itemscore">${sc.s[k]?'✅ 이 항목 정답':'아직 체크 안 됨 (하나만 맞아도 정답)'}</div>
   </div>`).join('')}
-  <div style="text-align:center;margin:18px 0 6px"><button class="btn big" onclick="finishGrade()">결과 확인</button></div>`;
+  <div style="text-align:center;margin:18px 0 6px"><button class="btn big" onclick="finishGrade()">내 엔딩 확인하기</button></div>`;
 }
 function gradeResult(ch, d){
   const sc = scoreOf(d);
-  const lbl = {perfect:'PERFECT SOLVE',true:'TRUE END',fail:'미해결'}[sc.label];
-  const sub = {perfect:'4개 항목 모두 정답입니다.',true:'1·2번을 맞히고 3개 이상 정답 — 사건을 해결했습니다.',fail:'1·2번 중 하나가 틀렸거나 정답이 3개 미만입니다. 엔딩북에서 남은 조각을 확인하세요.'}[sc.label];
+  const lbl = {perfect:'PERFECT END',true:'TRUE END',normal:'NORMAL END',bad:'BAD END'}[sc.label];
+  const sub = {perfect:'네 가지 진실을 모두 밝혀냈습니다. 완벽한 해결.',true:'범인을 지목하고 진실 대부분을 밝혔습니다.',normal:'범인은 맞혔지만 사건의 전모까지는 닿지 못했습니다.',bad:'범인을 놓쳤습니다. 진범은 유유히 회사를 빠져나갔습니다…'}[sc.label];
   return `<div class="result big-result ${sc.label}">
-      <div class="rstamp">${sc.label==='fail'?'CASE OPEN':'CASE CLOSED'}</div>
+      <div class="rstamp">${sc.label==='bad'?'CASE OPEN':'CASE CLOSED'}</div>
       <div class="who">${esc(ch.name)}</div>
       <div class="big ${sc.label}">${lbl}</div>
-      <div class="sc">${sc.total} / 4</div>
+      <div class="sc">맞힌 진실 ${sc.total} / 4</div>
       <p class="sub">${sub}</p>
-      <div class="bars">${HOST_RUBRIC.map((r,k)=>`<div class="bar-row"><span>${k+1}. ${esc(r.item.replace(/^\d+\.\s*/,''))}</span><i class="v${String(sc.s[k]).replace('.','_')}"></i><b>${sc.s[k]}</b></div>`).join('')}</div>
+      <div class="bars">${HOST_RUBRIC.map((r,k)=>`<div class="bar-row"><span>${esc(r.item)}</span><i class="v${String(sc.s[k]).replace('.','_')}"></i><b>${sc.s[k]?'○':'×'}</b></div>`).join('')}</div>
     </div>
     <div class="panel">
       ${SYNC? `<div class="autosent ${store.get(K('autosent'))?'ok':''}">${store.get(K('autosent'))?'✅ 진행자에게 자동 전송되었습니다':'⏳ 진행자에게 전송 중… (실패 시 아래 버튼으로 보내세요)'}</div>`:''}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn big" style="flex:1;background:var(--red)" onclick="shareSub()">📨 ${SYNC?'카톡으로도 보내기':'진행자에게 결과 보내기'}</button><button class="btn ghost sm" onclick="unGrade()">채점 수정</button></div>
       <p class="small" style="margin:10px 0 0">버튼을 누르면 내 이름·판정·점수·답안이 적힌 메시지가 만들어지고 공유 창(카톡 등)이 열립니다. 진행자에게 보내면 됩니다. 메시지 맨 아래 한 줄은 진행자 집계용 코드입니다.</p></div>
-    <a class="rowbtn" href="#/ending"><div><b>📖 엔딩북 다시 보기</b></div><span class="chev">›</span></a>`;
+    <a class="rowbtn" href="#/ending"><div><b>📖 엔딩북 다시 보기</b></div><span class="chev">›</span></a>
+    ${(SSTATE&&SSTATE.finale)? `<button class="rowbtn finale" onclick="playFinale()"><div><b>🎬 최종 연출 보기</b><span>진행자가 최종 연출을 시작했습니다</span></div><span class="chev">›</span></button>`:'<p class="hint" style="text-align:center">진행자가 최종 연출을 시작하면 여기에서 볼 수 있습니다.</p>'}`;
+}
+/* ===== FINALE (각자 폰, 범인 정답/오답 분기) ===== */
+function allResults(){
+  // {id: {caught:bool}} — 동기화된 제출 + 내 로컬
+  const map={};
+  const subs=(SSTATE&&SSTATE.subs)||{};
+  Object.values(subs).forEach(v=>{ if(v&&v.id) map[v.id]={caught: byId(v.a2c)?.name===HOST_RUBRIC[1].culprit}; });
+  const meId=me(); if(meId){ const d=ded(); if(d.graded){ map[meId]={caught: scoreOf(d).culpritOk}; } }
+  return map;
+}
+function weaveNames(ids){
+  const nm=ids.map(id=>byId(id)?.name).filter(Boolean);
+  if(nm.length===0) return '';
+  if(nm.length===1) return nm[0];
+  if(nm.length===2) return nm[0]+'와 '+nm[1];
+  return nm.slice(0,-1).join(', ')+', 그리고 '+nm[nm.length-1];
+}
+function playFinale(){
+  const d = ded(); const sc = scoreOf(d); const caught = sc.culpritOk;
+  const culprit = CHARS.find(c=>c.name===HOST_RUBRIC[1].culprit) || byId('hyunsun');
+  const st = (ENDING.stories && ENDING.stories[sc.label]) || {tag:'',head:[],tail:[],winLead:'',loseLead:''};
+  const endName = {perfect:'PERFECT END',true:'TRUE END',normal:'NORMAL END',bad:'BAD END'}[sc.label];
+  // 전원 결과로 승진/좌천 분기
+  const res = allResults();
+  const winners = Object.keys(res).filter(id=>res[id].caught);
+  const losers  = Object.keys(res).filter(id=>!res[id].caught);
+  const paras = [];
+  st.head.forEach(l=>paras.push({t:l}));
+  // 승진조
+  if(winners.length){
+    paras.push({t: st.winLead, cls:'lead win'});
+    winners.forEach(id=>{ if(FATE[id]) paras.push({t: FATE[id][0], cls:'fate win', me: id===me()}); });
+  }
+  // 좌천조
+  if(losers.length){
+    paras.push({t: st.loseLead, cls:'lead lose'});
+    losers.forEach(id=>{ if(FATE[id]) paras.push({t: FATE[id][1], cls:'fate lose', me: id===me()}); });
+  }
+  if(!winners.length && !losers.length){ paras.push({t:'(다른 참가자들의 채점이 아직 모이지 않았습니다. 잠시 후 다시 열면 모두의 결말이 이어집니다.)', cls:'muted'}); }
+  // 이연규(불참) 후일담 + 조사자 크레딧
+  if(st.yeongyuCarrier || st.yeongyuEpi){
+    const claims=(SSTATE&&SSTATE.claims)||{};
+    const carriers=[...new Set([0,1,2].map(i=>claims['yeongyu_'+i]?.by).filter(Boolean))];
+    // 내가 조사했으면 로컬도 반영
+    const myAcqY = me()? store.get(K('acq'),[]).some(a=>a.o==='yeongyu') : false;
+    if(myAcqY && !carriers.includes(me())) carriers.push(me());
+    if(st.yeongyuCarrier && carriers.length){
+      const who = weaveNames(carriers);
+      const mine = carriers.includes(me());
+      paras.push({t: st.yeongyuCarrier.replace('{who}', who), cls:'fate '+(sc.culpritOk?'win':'lose'), me: mine});
+    }
+    if(st.yeongyuEpi) paras.push({t: st.yeongyuEpi, cls:'yeon'});
+  }
+  st.tail.forEach(l=>paras.push({t:l}));
+  const el=document.createElement('div'); el.className='finale'+(caught?' win':' lose'); el.id='finale';
+  el.innerHTML = `
+    <div class="bars-anim" aria-hidden="true">${Array.from({length:9},()=>'<i></i>').join('')}</div>
+    <div class="fstage">
+      <div class="fline1">${caught?'용의자 검거':'미제 사건'}</div>
+      <div class="fspot">
+        <div class="mug"><img src="${img('photo_'+culprit.id)}" alt=""><div class="board">${caught?'GUILTY':'ESCAPED'}</div></div>
+      </div>
+      <div class="fname">진짜 범인 — ${esc(culprit.name)}</div>
+      <div class="fend ${sc.label}">${endName} · ${esc(st.tag)}</div>
+      <div class="fstory">${paras.map(p=>`<p class="${p.cls||''}${p.me?' mine':''}">${esc(p.t)}${p.me?' <span class="you">← 나</span>':''}</p>`).join('')}</div>
+      <div class="fmeta">범인 지목 성공 ${winners.length}명 · 실패 ${losers.length}명</div>
+      <button class="btn" onclick="document.getElementById('finale').remove()">닫기</button>
+    </div>`;
+  document.body.appendChild(el);
+  if(navigator.vibrate) try{ navigator.vibrate(caught?[120,60,120,60,240]:[300]); }catch(e){}
+  requestAnimationFrame(()=>el.classList.add('go'));
 }
 document.addEventListener('change', e=>{
   const t=e.target; if(t.matches && t.matches('.chk input')){ const d=ded(); d.grade[t.dataset.k]=d.grade[t.dataset.k]||[]; d.grade[t.dataset.k][+t.dataset.i]=t.checked; store.set(K('ded'),d); const sc=scoreOf(d); sc.s.forEach((v,k)=>{ const el=$('#gpt'+k); if(el) el.textContent=v; }); }
