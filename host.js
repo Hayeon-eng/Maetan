@@ -13,7 +13,7 @@ const byId = id => CHARS.find(c=>c.id===id);
 function acc(title, body, open, id){ return `<div class="acc ${open?'open':''}" ${id?`id="${id}"`:''}><button onclick="this.parentNode.classList.toggle('open')"><span>${title}</span><span class="chev">›</span></button><div class="body">${body}</div></div>`; }
 function topbar(title, act){ return `<header class="top"><div class="wrap"><div class="ttl">${esc(title)}</div>${act||''}</div></header>`; }
 window.addEventListener('DOMContentLoaded', ()=>{ render(); startSync(3000); });
-onSync(()=>{ if(store.get('ok',false)){ const el=document.getElementById('live'); if(el) el.innerHTML=liveBoard(); const s=document.getElementById('subsbody'); if(s) s.innerHTML=hostSubs(); } });
+onSync(()=>{ if(store.get('ok',false)){ const el=document.getElementById('live'); if(el) el.innerHTML=liveBoard(); const s=document.getElementById('subsbody'); if(s) s.innerHTML=hostSubs(); const rk=document.getElementById('rankbody'); if(rk) rk.innerHTML=hostRanking(); } });
 
 function render(){
   document.body.dataset.mode='host';
@@ -44,6 +44,7 @@ function render(){
       <div class="tbtns">${[15,20,25].map(m=>`<button class="btn ghost sm" onclick="setTimer(${m})">${m}분</button>`).join('')} <button class="btn sm" onclick="toggleTimer()" id="tgo">시작</button></div>
       <p class="hint">권장: 시작 15 · R1 20 · R2 25 · R3 25 · R4 25 · FINAL 15 · 엔딩 15 (총 140분). 0이 되면 화면이 깜빡입니다.</p></div>`)}
     ${acc('최종 추리 제출 현황', `<div id="subsbody">${hostSubs()}</div>`, false, 'acc-subs')}
+    ${acc('점수 랭킹 (공용 화면용)', `<div id="rankbody">${hostRanking()}</div>`, false, 'acc-rank')}
     ${acc('라운드 카드 · 내용', HOST_CARDS.map(c=>`<div class="env open ${c.key==='final'?'final':''}"><div class="hh"><span>${esc(c.round)} · <b>${esc(c.title)}</b></span><span class="code">${rc[c.key]}</span></div><img src="${img(c.img)}" alt="" onclick="openZoom(this.src)"><div class="ht">${esc(c.text)}</div></div>`).join(''))}
     ${acc('캐릭터 번호(PIN) 목록', `<p class="hint">번호는 무작위 2자리입니다. 배정한 플레이어에게만 개별로 알려주세요. 진행자 번호는 ${META.hostPin}.</p><table class="pinlist">${CHARS.map(ch=>`<tr><td>${esc(ch.name)}</td><td class="small">${esc(ch.group)}</td><td>${ch.pin}</td></tr>`).join('')}</table>`)}
     ${acc('세팅 · 시작 전 5분 체크', `<dl class="kv">${HOST.setup.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`)}
@@ -83,6 +84,14 @@ function tickTimerUI(){
 /* submissions */
 function b64d(s){ s=s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; return decodeURIComponent(escape(atob(s))); }
 function decodeSubs(txt){ const out=[]; (txt.match(/MM36:[A-Za-z0-9_\-]+/g)||[]).forEach(c=>{ try{ out.push(JSON.parse(b64d(c.slice(5)))); }catch(e){} }); return out; }
+function hostRanking(){
+  const subs=Object.assign({}, store.get('subs',{}), (SSTATE&&SSTATE.subs)||{});
+  const rows=Object.values(subs).filter(s=>s.t!=null).map(s=>({name:s.n,t:s.t,l:s.l})).sort((a,b)=>b.t-a.t);
+  if(!rows.length) return '<p class="small">아직 채점 결과가 없습니다.</p>';
+  const medal=i=>['🥇','🥈','🥉'][i]||`${i+1}`;
+  const lbl={perfect:'PERFECT',true:'TRUE',normal:'NORMAL',bad:'BAD'};
+  return `<div class="hostrank">${rows.map((r,i)=>`<div class="hr-row ${i===0?'top':''}"><span class="rk">${medal(i)}</span><span class="rn">${esc(r.name)}</span><span class="rl tag ${r.l}">${lbl[r.l]||''}</span><span class="rs">${r.t}/4</span></div>`).join('')}</div>`;
+}
 function hostSubs(){
   const subs = Object.assign({}, store.get('subs', {}), (SSTATE&&SSTATE.subs)||{}); const list = Object.values(subs);
   const lbl = l => ({perfect:'PERFECT',true:'TRUE END',fail:'미해결'}[l]||'-');
@@ -119,7 +128,9 @@ function liveBoard(){
   const claims = st.claims||{}; const shared = st.shared||{}; const subs = st.subs||{};
   const nm = id => byId(id)?.name||'?';
   const initials = id => nm(id).slice(0,1);
-  return `<div class="livehead"><div><div class="lbl">현재</div><div class="cur">${RNAME[cur]}</div></div>
+  const info = ROUND_INFO[cur]||ROUND_INFO.lobby;
+  return `<div class="rb-nowbox ${cur}"><div class="rb-now">${info.n} · ${esc(info.title)}</div><div class="rb-desc">${esc(info.desc)}</div></div>
+    <div class="livehead"><div><div class="lbl">현재 단계</div><div class="cur">${RNAME[cur]}</div></div>
       ${next? `<button class="btn big" onclick="advanceRound('${next}')">${cur==='lobby'?'ROUND 1 시작':(RNAME[cur]+' 종료 → '+RNAME[next]+' 시작')}</button>` : `<button class="btn big" style="background:var(--red)" onclick="startFinale()">🎬 최종 연출 시작(전원 폰)</button>`}
     </div>
     ${cur==='ending'? `<p class="hint">전원 채점이 끝나면 위 버튼을 누르세요. 각자 폰에서 범인 정답/오답에 따라 검거·미제 연출이 재생됩니다.</p>`:''}

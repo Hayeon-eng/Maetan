@@ -392,3 +392,35 @@ details summary::-webkit-details-marker{display:none}
 .fmeta{font-family:var(--mono);font-size:11px;color:#9aa;letter-spacing:.06em;margin:6px 0 16px}
 
 .fstory p.yeon{border-left:3px solid #7FD1C9;background:rgba(127,209,201,.10);color:#d7f2ee;padding:8px 10px;border-radius:5px;font-size:13.5px}
+
+/* 라운드 배너 (플레이어 홈) */
+.rbanner{background:var(--navy2);border:1px solid var(--navy3);border-radius:8px;padding:12px 14px;margin-top:16px}
+.rbanner .rb-top{display:flex;align-items:baseline;gap:10px}
+.rbanner .rb-now{font-family:var(--mono);font-weight:700;font-size:15px;color:var(--amber);letter-spacing:.06em}
+.rbanner .rb-title{font-size:17px;font-weight:900;color:var(--paper)}
+.rbanner .rb-desc{font-size:13px;color:var(--dim);margin:6px 0 10px;line-height:1.6}
+.rbanner .rb-steps{display:flex;gap:4px}
+.rbanner .rb-steps span{flex:1;text-align:center;font-family:var(--mono);font-size:10px;padding:5px 0;border-radius:3px;background:#0c1526;color:var(--dim)}
+.rbanner .rb-steps span.done{background:var(--han);color:#fff}
+.rbanner .rb-steps span.now{background:var(--amber);color:#1d1608;font-weight:700}
+.rbanner.ending .rb-now{color:#ff5a4d}
+/* 랭킹 (연출 끝) */
+.frank{text-align:left;margin:14px 0 4px;background:rgba(255,255,255,.04);border-radius:8px;padding:12px 12px 8px}
+.frank-h{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:#9db4ff;margin-bottom:8px;text-align:center}
+.frank-row{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:8px;padding:7px 8px;border-radius:5px;font-size:14px;color:#e8e8e8}
+.frank-row+.frank-row{margin-top:3px}
+.frank-row.top{background:rgba(230,180,87,.14)}
+.frank-row.me{outline:1px solid #C8322B}
+.frank-row .rk{font-size:16px;text-align:center}
+.frank-row .rs{font-family:var(--mono);color:#ffd27a}
+
+.rb-nowbox{background:#0c1526;border:1px solid var(--navy3);border-radius:8px;padding:12px 14px;margin-bottom:12px}
+.rb-nowbox .rb-now{font-family:var(--mono);font-weight:700;color:var(--amber);letter-spacing:.04em;font-size:15px}
+.rb-nowbox .rb-desc{font-size:13px;color:var(--dim);margin-top:5px;line-height:1.6}
+.rb-nowbox.ending .rb-now{color:#ff5a4d}
+.hostrank .hr-row{display:grid;grid-template-columns:34px 1fr auto auto;gap:8px;align-items:center;padding:8px;border-radius:5px;font-size:14px}
+.hostrank .hr-row.top{background:#FBF4E2}
+.hostrank .rk{text-align:center;font-size:16px}
+.hostrank .rs{font-family:var(--mono);font-weight:700;margin-left:8px}
+.hostrank .tag{font-size:10px;padding:2px 6px;border-radius:2px;color:#fff}
+.hostrank .tag.perfect{background:#a67b2a}.hostrank .tag.true{background:var(--han)}.hostrank .tag.normal{background:var(--mou)}.hostrank .tag.bad{background:#8a7f73}

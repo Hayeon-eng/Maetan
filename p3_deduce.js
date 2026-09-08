@@ -119,6 +119,15 @@ function gradeResult(ch, d){
     ${(SSTATE&&SSTATE.finale)? `<button class="rowbtn finale" onclick="playFinale()"><div><b>🎬 최종 연출 보기</b><span>진행자가 최종 연출을 시작했습니다</span></div><span class="chev">›</span></button>`:'<p class="hint" style="text-align:center">진행자가 최종 연출을 시작하면 여기에서 볼 수 있습니다.</p>'}`;
 }
 /* ===== FINALE (각자 폰, 범인 정답/오답 분기) ===== */
+function finaleRanking(){
+  const res = allResults(); const subs=(SSTATE&&SSTATE.subs)||{};
+  const rows = Object.keys(res).map(id=>{ const sub=Object.values(subs).find(v=>v.id===id); const t = (id===me()? scoreOf(ded()).total : (sub? sub.t : null)); const l=(id===me()? scoreOf(ded()).label : (sub? sub.l : null)); return {id, name:byId(id)?.name||id, t: t==null?-1:t, l}; });
+  if(!rows.length) return '';
+  rows.sort((a,b)=>b.t-a.t);
+  const medal = i => ['🥇','🥈','🥉'][i]||`${i+1}`;
+  const endShort = {perfect:'P',true:'T',normal:'N',bad:'B'};
+  return `<div class="frank"><div class="frank-h">최종 점수 랭킹</div>${rows.map((r,i)=>`<div class="frank-row ${r.id===me()?'me':''} ${i===0?'top':''}"><span class="rk">${medal(i)}</span><span class="rn">${esc(r.name)}${r.id===me()?' <b>(나)</b>':''}</span><span class="rs">${r.t<0?'-':r.t+'/4'}</span></div>`).join('')}</div>`;
+}
 function allResults(){
   // {id: {caught:bool}} — 동기화된 제출 + 내 로컬
   const map={};
@@ -183,7 +192,11 @@ function playFinale(){
       <div class="fend ${sc.label}">${endName} · ${esc(st.tag)}</div>
       <div class="fstory">${paras.map(p=>`<p class="${p.cls||''}${p.me?' mine':''}">${esc(p.t)}${p.me?' <span class="you">← 나</span>':''}</p>`).join('')}</div>
       <div class="fmeta">범인 지목 성공 ${winners.length}명 · 실패 ${losers.length}명</div>
-      <button class="btn" onclick="document.getElementById('finale').remove()">닫기</button>
+      ${finaleRanking()}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px">
+        <button class="btn" onclick="document.getElementById('finale').remove();location.hash='#/ending'">📖 사건의 진상 보기</button>
+        <button class="btn ghost" onclick="document.getElementById('finale').remove()">닫기</button>
+      </div>
     </div>`;
   document.body.appendChild(el);
   if(navigator.vibrate) try{ navigator.vibrate(caught?[120,60,120,60,240]:[300]); }catch(e){}

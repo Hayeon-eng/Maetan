@@ -32,7 +32,7 @@ function route(){
   renderHome();
 }
 window.addEventListener('hashchange', route);
-window.addEventListener('DOMContentLoaded', ()=>{ route(); startSync(3000); });
+window.addEventListener('DOMContentLoaded', ()=>{ route(); startSync(3000); if(SYNC){ pollOnce().then(()=>{ const h=location.hash; if(h===''||h==='#/'||h==='#/shared') route(); }); } });
 let lastRound = null;
 onSync((st, prev)=>{
   if(st.reset && store.get('resetSeen',0)!==st.reset){
@@ -44,14 +44,15 @@ onSync((st, prev)=>{
     return;
   }
   const r = st.round||'lobby';
-  if(lastRound===null){ lastRound = store.get('seenRound', 'lobby'); }
-  if(r!==lastRound){
+  if(lastRound===null){ lastRound = r; store.set('seenRound', r); }  // 첫 동기화: 현재 라운드를 기준선으로만 잡고 오버레이 X
+  else if(r!==lastRound){
     if(roundIdx(r)>roundIdx(lastRound)) showRoundOverlay(lastRound, r, META.tokens[r]?`조사 토큰 +${META.tokens[r]}`:'');
     lastRound=r; store.set('seenRound', r);
   }
-  if(st.finale && store.get('finaleSeen',0)!==st.finale && me()){
+  if(st.finale && me() && store.get('finaleSeen',0)!==st.finale){
+    const first = store.get('finaleSeen',0)===0 && lastRound===null;  // 첫 로드에서 이미 finale가 있던 경우엔 자동재생만 안 함(수동으로 볼 수 있음)
     store.set('finaleSeen', st.finale);
-    if(ded().graded) playFinale();
+    if(ded().graded && !first) playFinale();
   }
   const h=location.hash;
   if(h.startsWith('#/inv/')) renderInv(h.split('/')[2]);
@@ -66,6 +67,16 @@ function topbar(title, back, act){
     ${act||''}
   </div></header>`;
 }
+function roundBanner(){
+  const cur = curRound(); const info = ROUND_INFO[cur]||ROUND_INFO.lobby;
+  const idx = roundIdx(cur);
+  const steps = ROUND_ORDER.slice(1).map((k,i)=>`<span class="${i+1<idx?'done':''} ${k===cur?'now':''}">${ROUND_INFO[k].n.replace('ROUND ','R')}</span>`).join('');
+  return `<div class="rbanner ${cur}">
+    <div class="rb-top"><span class="rb-now">${info.n}</span><span class="rb-title">${esc(info.title)}</span></div>
+    <div class="rb-desc">${esc(info.desc)}</div>
+    <div class="rb-steps">${steps}</div>
+  </div>`;
+}
 function modebar(kind, text){
   const ic = {me:'🔒', inv:'🔍', shared:'📋', home:'', ending:'📖', grade:'✅'}[kind]||'';
   const lbl = {me:'나만 보는 화면', inv:'다른 플레이어 조사', shared:'공용 · 모두 같은 내용', ending:'엔딩북', grade:'최종 채점'}[kind]||'';
@@ -75,9 +86,12 @@ function acc(title, body, open, id){ return `<div class="acc ${open?'open':''}" 
 
 /* ===== tokens & inventory ===== */
 function roundsOpen(){
-  const r = Object.assign({}, store.get('rounds',{}));
-  if(SYNC && SSTATE){ const idx=roundIdx(curRound()); ROUND_ORDER.slice(1, idx+1).forEach(k=>{ r[k]=true; }); }
-  return r;
+  if(SYNC){
+    // 동기화 모드: 오직 서버의 현재 라운드만 신뢰 (로컬 잔여 플래그 무시)
+    const r={}; if(SSTATE){ const idx=roundIdx(curRound()); ROUND_ORDER.slice(1, idx+1).forEach(k=>{ r[k]=true; }); }
+    return r;
+  }
+  return Object.assign({}, store.get('rounds',{}));
 }
 function tokenState(){
   const rounds = roundsOpen(); const T = META.tokens;
@@ -95,6 +109,7 @@ function renderHome(){
   $('#app').innerHTML = `
   ${topbar(META.title, null, my?`<a class="act me" href="#/me">🔒 내 화면</a>`:'')}
   <main class="wrap">
+    ${roundBanner()}
     ${my && roundsOpen().ending? `<a class="finalbanner" href="#/grade"><span>📖 엔딩이 열렸습니다</span><b>✅ 최종 채점하기 →</b></a>`:''}
     <div class="titleblk">
       <div class="stamp">[대외비]<small>열람 주의</small></div>

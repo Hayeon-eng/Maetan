@@ -81,8 +81,16 @@ function tryRound(key, i, inp){
 /* ===== ENDING ===== */
 function renderEnding(){
   setMode('ending');
+  const finaleStarted = SYNC ? !!(SSTATE&&SSTATE.finale) : !!store.get('finaleSeen',0);
+  if(!finaleStarted){
+    $('#app').innerHTML = `${topbar('엔딩북','#/')}${modebar('ending','아직 열람할 수 없습니다')}<main class="wrap"><div class="gate">
+      <div class="seal" style="display:inline-block;transform:rotate(-8deg);color:var(--red);border:3px solid var(--red);border-radius:6px;padding:4px 14px;font-weight:900;letter-spacing:.2em;margin-bottom:12px">SEALED</div>
+      <h2 style="margin:0 0 6px">사건의 진상은 아직 봉인되어 있습니다</h2>
+      <p style="font-family:var(--mono);color:var(--dim);font-size:13px;line-height:1.8">전원이 최종 추리를 제출하고,<br>진행자가 <b>최종 연출</b>을 시작하면<br>결말과 함께 진상이 열립니다.</p></div></main>`;
+    return;
+  }
   const rounds = roundsOpen();
-  if(!rounds.ending){
+  if(false){
     $('#app').innerHTML = `${topbar('엔딩북','#/')}${modebar('ending','최종 추리 제출 후 진행자가 코드를 알려줍니다')}<main class="wrap"><div class="gate">
       <div class="seal" style="display:inline-block;transform:rotate(-8deg);color:var(--red);border:3px solid var(--red);border-radius:6px;padding:4px 14px;font-weight:900;letter-spacing:.2em;margin-bottom:10px">SEALED</div>
       <h2 style="margin:0 0 6px">엔딩 코드</h2><div class="gmsg" id="gmsg"></div>
@@ -91,7 +99,7 @@ function renderEnding(){
     const inp=$('#pin'); inp.focus(); inp.addEventListener('input',()=>{ if(inp.value.length===4) tryEnding(); }); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') tryEnding(); });
     return;
   }
-  $('#app').innerHTML = `${topbar('엔딩북','#/')}${modebar('ending','네 가지 진실 · 2036.10.28 그날 밤')}<main class="wrap" style="padding-top:16px">
+  $('#app').innerHTML = `${topbar('사건의 진상','#/')}${modebar('ending','네 가지 진실 · 2036.10.28 그날 밤')}<main class="wrap" style="padding-top:16px">
     ${endingBody()}
     ${me()?`<a class="rowbtn grade" href="#/grade"><div><b>✅ 채점하기</b><span>정답 항목을 체크해 점수를 확정합니다</span></div><span class="chev">›</span></a>`:''}
     <p class="foot">${esc(META.version)}</p></main>`;
