@@ -114,7 +114,7 @@ function gradeResult(ch, d){
       ${SYNC? `<div class="autosent ${store.get(K('autosent'))?'ok':''}">${store.get(K('autosent'))?'✅ 진행자에게 자동 전송되었습니다':'⏳ 진행자에게 전송 중… (실패 시 아래 버튼으로 보내세요)'}</div>`:''}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn big" style="flex:1;background:var(--red)" onclick="shareSub()">📨 ${SYNC?'카톡으로도 보내기':'진행자에게 결과 보내기'}</button><button class="btn ghost sm" onclick="unGrade()">채점 수정</button></div>
       <p class="small" style="margin:10px 0 0">버튼을 누르면 내 이름·판정·점수·답안이 적힌 메시지가 만들어지고 공유 창(카톡 등)이 열립니다. 진행자에게 보내면 됩니다. 메시지 맨 아래 한 줄은 진행자 집계용 코드입니다.</p></div>
-    ${(SSTATE&&SSTATE.finale)? `<button class="rowbtn finale" onclick="playFinale()"><div><b>🎬 최종 연출 보기</b><span>진행자가 최종 연출을 시작했습니다 · 다시 보려면 여기</span></div><span class="chev">›</span></button>`:'<div class="panel c-amb"><h3>✅ 채점 완료 · 연출 대기</h3><p style="margin:0;font-size:15px">모두 채점이 끝나면 <b>진행자가 최종 연출을 시작</b>합니다. 그때 이 화면에서 판결 → 진범 → 결말이 자동으로 재생됩니다.</p></div>'}`;
+    ${(SSTATE&&SSTATE.finaleStage)? `<button class="rowbtn finale" onclick="renderFinaleStage(+SSTATE.finaleStage)"><div><b>🎬 최종 연출 다시 보기</b></div><span class="chev">›</span></button>`:'<div class="panel c-amb"><h3>✅ 채점 완료 · 연출 대기</h3><p style="margin:0;font-size:15px">모두 채점이 끝나면 <b>진행자가 최종 연출을 시작</b>합니다. 그때 이 화면에서 판결 → 진범 → 결말 → 진상 → 랭킹이 순서대로 자동 재생됩니다.</p></div>'}`;
 }
 /* ===== FINALE (각자 폰, 범인 정답/오답 분기) ===== */
 function finaleRankingLight(){
@@ -130,13 +130,10 @@ function finaleRanking(){
   if(!rows.length) return '';
   rows.sort((a,b)=>b.t-a.t);
   const medal = i => ['🥇','🥈','🥉'][i]||`${i+1}`;
-  const endShort = {perfect:'P',true:'T',normal:'N',bad:'B'};
   return `<div class="frank"><div class="frank-h">최종 점수 랭킹</div>${rows.map((r,i)=>`<div class="frank-row ${r.id===me()?'me':''} ${i===0?'top':''}"><span class="rk">${medal(i)}</span><span class="rn">${esc(r.name)}${r.id===me()?' <b>(나)</b>':''}</span><span class="rs">${r.t<0?'-':r.t+'/4'}</span></div>`).join('')}</div>`;
 }
 function allResults(){
-  // {id: {caught:bool}} — 동기화된 제출 + 내 로컬
-  const map={};
-  const subs=(SSTATE&&SSTATE.subs)||{};
+  const map={}; const subs=(SSTATE&&SSTATE.subs)||{};
   Object.values(subs).forEach(v=>{ if(v&&v.id) map[v.id]={caught: byId(v.a2c)?.name===HOST_RUBRIC[1].culprit}; });
   const meId=me(); if(meId){ const d=ded(); if(d.graded){ map[meId]={caught: scoreOf(d).culpritOk}; } }
   return map;
@@ -148,79 +145,112 @@ function weaveNames(ids){
   if(nm.length===2) return nm[0]+'와 '+nm[1];
   return nm.slice(0,-1).join(', ')+', 그리고 '+nm[nm.length-1];
 }
-function playFinale(){
-  const d = ded(); const myGraded = d.graded; const sc = myGraded? scoreOf(d) : null;
+function verdictInfo(){
   const culprit = CHARS.find(c=>c.name===HOST_RUBRIC[1].culprit) || byId('hyunsun');
-  // 전원 투표 집계 (동기화된 제출 + 내 제출)
   const subs = Object.assign({}, (SSTATE&&SSTATE.subs)||{});
-  if(me()){ const dd=ded(); if(dd.submitted) subs['__me']={id:me(), a2c:dd.a2c, t: dd.graded? scoreOf(dd).total: null, l: dd.graded? scoreOf(dd).label: null}; }
-  const votes={}; Object.values(subs).forEach(v=>{ if(v&&v.a2c) votes[v.a2c]=(votes[v.a2c]||0)+1; });
+  if(me()){ const dd=ded(); if(dd.submitted){ subs['__me']={id:me(), a2c:dd.a2c, t: dd.graded? scoreOf(dd).total : null}; } }
+  const list = Object.values(subs).filter(v=>v&&v.a2c);
+  const votes={}; list.forEach(v=>{ votes[v.a2c]=(votes[v.a2c]||0)+1; });
   let topId=null, topN=0; Object.keys(votes).forEach(id=>{ if(votes[id]>topN){ topN=votes[id]; topId=id; } });
-  const jailedId = topId || culprit.id;                 // 최다 득표자
-  const justice = jailedId===culprit.id;                // 정답이면 정의구현
-  const jailed = byId(jailedId)===undefined && jailedId==='yeongyu' ? YEONGYU : byId(jailedId);
-  window.__fin={justice, jailedId};
-  const el=document.createElement('div'); el.className='finale stage1 '+(justice?'win':'lose'); el.id='finale';
-  el.innerHTML = `
-    <div class="bars-anim" aria-hidden="true">${Array.from({length:9},()=>'<i></i>').join('')}</div>
-    <div class="fstage">
-      <div class="fline1">${justice?'판결 — 유죄':'판결 — 오심'}</div>
-      <div class="fspot ${justice?'justice':'wrong'}">
-        ${justice?'<div class="confetti" aria-hidden="true">'+Array.from({length:24},(_,k)=>`<i style="--i:${k}"></i>`).join('')+'</div>':'<div class="shadow" aria-hidden="true" title="정체불명"><span>?</span></div>'}
-        <div class="mug"><img src="${img('photo_'+jailedId)}" alt=""><div class="board">GUILTY</div></div>
-      </div>
-      <div class="fname">${esc(jailed?jailed.name:'?')} · 최다 득표 ${topN}표</div>
-      <div class="fend ${justice?'true':'bad'}">${justice?'배심원단은 진범을 정확히 지목했다.':'배심원단은 엉뚱한 사람을 지목했다. 그는 억울하게 갇혔다.'}</div>
-      <button class="btn" onclick="finaleStage2()">${justice?'▶ 진범 확인':'▶ 그렇다면, 진짜 범인은?'}</button>
-    </div>`;
-  document.body.appendChild(el);
-  if(navigator.vibrate) try{ navigator.vibrate(justice?[120,60,120]:[300]); }catch(e){}
-  requestAnimationFrame(()=>el.classList.add('go'));
+  const jailedId = topId || culprit.id;
+  const justice = jailedId===culprit.id;
+  // 집단 등급: 오심이면 BAD, 정답이면 전원 평균점으로 P/T/N
+  const scored = list.map(v=>v.t).filter(t=>typeof t==='number');
+  const avg = scored.length? scored.reduce((a,b)=>a+b,0)/scored.length : 0;
+  let grade;
+  if(!justice) grade='bad';
+  else if(avg>=3.5) grade='perfect';
+  else if(avg>=2) grade='true';
+  else grade='normal';
+  // 진범 맞힌 사람들(공로자)
+  const solvers = list.filter(v=> byId(v.a2c)?.name===culprit.name ).map(v=>v.id);
+  return {culprit, jailedId, justice, topN, jailed:(jailedId==='yeongyu'?YEONGYU:byId(jailedId)), grade, avg, solvers, total:list.length};
 }
-function finaleStage2(){
-  const justice=window.__fin.justice, jailedId=window.__fin.jailedId;
-  const d = ded(); const myGraded = d.graded; const sc = myGraded? scoreOf(d): {culpritOk:false,label:'bad',s:[0,0,0,0],total:0};
-  const culprit = CHARS.find(c=>c.name===HOST_RUBRIC[1].culprit) || byId('hyunsun');
-  const st = (ENDING.stories && ENDING.stories[sc.label]) || {tag:'',head:[],tail:[],winLead:'',loseLead:''};
-  const endName = {perfect:'PERFECT END',true:'TRUE END',normal:'NORMAL END',bad:'BAD END'}[sc.label];
-  const res = allResults();
-  const winners = Object.keys(res).filter(id=>res[id].caught);
-  const losers  = Object.keys(res).filter(id=>!res[id].caught);
-  const paras=[];
-  st.head.forEach(l=>paras.push({t:l}));
-  if(winners.length){ paras.push({t:st.winLead,cls:'lead win'}); winners.forEach(id=>{ if(FATE[id]) paras.push({t:FATE[id][0],cls:'fate win',me:id===me()}); }); }
-  if(losers.length){ paras.push({t:st.loseLead,cls:'lead lose'}); losers.forEach(id=>{ if(FATE[id]) paras.push({t:FATE[id][1],cls:'fate lose',me:id===me()}); }); }
-  if(st.yeongyuCarrier || st.yeongyuEpi){
-    const claims=(SSTATE&&SSTATE.claims)||{};
-    const carriers=[...new Set([0,1,2].map(i=>claims['yeongyu_'+i]?.by).filter(Boolean))];
-    if(me() && store.get(K('acq'),[]).some(a=>a.o==='yeongyu') && !carriers.includes(me())) carriers.push(me());
-    if(st.yeongyuCarrier && carriers.length) paras.push({t: st.yeongyuCarrier.replace('{who}', weaveNames(carriers)), cls:'fate '+(sc.culpritOk?'win':'lose'), me: carriers.includes(me())});
-    if(st.yeongyuEpi) paras.push({t: st.yeongyuEpi, cls:'yeon'});
+// 진행자가 넘긴 stage(1~5)에 맞춰 전원 폰이 같은 장면을 그린다
+function renderFinaleStage(stage){
+  const v = verdictInfo();
+  const d = ded(); const graded = d.graded; const sc = graded? scoreOf(d) : {culpritOk:v.justice,label: v.justice?'normal':'bad',s:[0,0,0,0],total:0};
+  let el=document.getElementById('finale');
+  if(!el){ el=document.createElement('div'); el.id='finale'; el.className='finale'; document.body.appendChild(el); }
+  el.className='finale s'+stage+' '+(v.justice?'win':'lose');
+  if(stage===1){
+    el.innerHTML = `<div class="bars-anim" aria-hidden="true">${Array.from({length:9},()=>'<i></i>').join('')}</div>
+      <div class="fstage">
+        <div class="fline1">${v.justice?'판결 — 유죄':'판결 — 오심'}</div>
+        <div class="fspot ${v.justice?'justice':'wrong'}">
+          ${v.justice?'<div class="confetti" aria-hidden="true">'+Array.from({length:24},(_,k)=>`<i style="--i:${k}"></i>`).join('')+'</div>':'<div class="shadow" aria-hidden="true"><span>?</span></div>'}
+          <div class="mug"><img src="${img('photo_'+v.jailedId)}" alt=""><div class="board">GUILTY</div></div>
+        </div>
+        <div class="fname">${esc(v.jailed?v.jailed.name:'?')} · 최다 득표 ${v.topN}표</div>
+        <div class="fend ${v.justice?'true':'bad'}">${v.justice?'배심원단은 진범을 정확히 지목했다.':'배심원단은 엉뚱한 사람을 지목했다.'}</div>
+        <div class="fwait">다음 장면은 진행자가 넘깁니다…</div>
+      </div>`;
+  } else if(stage===2){
+    el.innerHTML = `<div class="fstage">
+        <div class="fline1 red">진짜 범인</div>
+        <div class="fspot big"><div class="mug red"><img src="${img('photo_'+v.culprit.id)}" alt=""><div class="board">${v.justice?'GUILTY':'ESCAPED'}</div></div></div>
+        <div class="fname red">${esc(v.culprit.name)}</div>
+        ${(!v.justice)?`<div class="misjudge">진범은 붙잡히지 않았다. ${esc(v.jailed?v.jailed.name:'다른 사람')}만 억울하게 갇힌 채, ${esc(v.culprit.name)}은 조용히 회사에 남았다.</div>`:''}
+        <div class="fwait">다음 장면은 진행자가 넘깁니다…</div>
+      </div>`;
+  } else if(stage===3){
+    const st=(ENDING.stories&&ENDING.stories[v.grade])||{tag:'',head:[],tail:[],winLead:'',loseLead:'',yeongyuEpi:'',yeongyuCarrier:''};
+    const endName={perfect:'PERFECT END',true:'TRUE END',normal:'NORMAL END',bad:'BAD END'}[v.grade];
+    const culpritName = v.culprit.name;
+    // 전원 결과: 진범 지목 성공/실패로 승진조/좌천조
+    const subs = Object.assign({}, (SSTATE&&SSTATE.subs)||{});
+    if(me()){ const dd=ded(); if(dd.submitted) subs['__me']={id:me(), a2c:dd.a2c}; }
+    const seen=new Set(); const players=[];
+    Object.values(subs).forEach(x=>{ if(x&&x.id&&!seen.has(x.id)){ seen.add(x.id); players.push(x); } });
+    const winners = players.filter(x=> byId(x.a2c)?.name===culpritName ).map(x=>x.id);
+    const losers  = players.filter(x=> byId(x.a2c)?.name!==culpritName ).map(x=>x.id);
+    const paras=[];
+    st.head.forEach(l=>paras.push({t:l}));
+    // 승진조 (추리 맞힘)
+    if(winners.length){
+      paras.push({t: st.winLead, cls:'lead win'});
+      winners.forEach(id=>{ if(FATE[id]) paras.push({t: FATE[id][0], cls:'fate win', me:id===me()}); });
+    }
+    // 좌천조 (추리 틀림)
+    if(losers.length){
+      paras.push({t: st.loseLead, cls:'lead lose'});
+      losers.forEach(id=>{ if(FATE[id]) paras.push({t: FATE[id][1], cls:'fate lose', me:id===me()}); });
+    }
+    // 이연규(불참) — 조사자 크레딧 + 후일담
+    if(st.yeongyuCarrier || st.yeongyuEpi){
+      const claims=(SSTATE&&SSTATE.claims)||{};
+      const carriers=[...new Set([0,1,2].map(i=>claims['yeongyu_'+i]?.by).filter(Boolean))];
+      if(me() && store.get(K('acq'),[]).some(a=>a.o==='yeongyu') && !carriers.includes(me())) carriers.push(me());
+      if(st.yeongyuCarrier && carriers.length) paras.push({t: st.yeongyuCarrier.replace('{who}', weaveNames(carriers)), cls:'fate '+(v.justice?'win':'lose'), me: carriers.includes(me())});
+      if(st.yeongyuEpi) paras.push({t: st.yeongyuEpi, cls:'yeon'});
+    }
+    st.tail.forEach(l=>paras.push({t:l}));
+    el.innerHTML = `<div class="fstage scroll">
+        <div class="fline1 ${v.grade}">${endName}</div>
+        <div class="fend ${v.grade}">${esc(st.tag)} · 배심원단 평균 ${v.avg.toFixed(1)}/4</div>
+        <div class="fstory">${paras.map(p=>`<p class="${p.cls||''}${p.me?' mine':''}">${esc(p.t)}${p.me?' <span class="you">← 나</span>':''}</p>`).join('')}</div>
+        <div class="fwait">다음 장면은 진행자가 넘깁니다…</div>
+      </div>`;
+  } else if(stage===4){
+    el.innerHTML = `<div class="fstage scroll light">
+        <div class="fline1">사건의 진상</div>
+        <div class="truthbox">${ENDING.truths.map(([k,vv])=>`<div class="tb"><h4>${esc(k)}</h4><p>${esc(vv)}</p></div>`).join('')}</div>
+        <div class="fwait">다음 장면은 진행자가 넘깁니다…</div>
+      </div>`;
+  } else if(stage===5){
+    el.innerHTML = `<div class="fstage scroll">
+        <div class="fline1">최종 결과</div>
+        <div class="frank-wrap">${finaleRanking()}</div>
+        <div style="text-align:center;margin-top:16px"><button class="btn ghost" onclick="document.getElementById('finale').remove()">닫기</button></div>
+      </div>`;
   }
-  st.tail.forEach(l=>paras.push({t:l}));
-  const el=document.getElementById('finale'); if(!el) return;
-  el.className='finale stage2 reveal';
-  el.innerHTML = `
-    <div class="fstage">
-      <div class="fline1 red">진짜 범인</div>
-      <div class="fspot big"><div class="mug red"><img src="${img('photo_'+culprit.id)}" alt=""><div class="board">${justice?'GUILTY':'ESCAPED'}</div></div></div>
-      <div class="fname red">${esc(culprit.name)}</div>
-      <div class="fend ${sc.label}">${endName} · ${esc(st.tag)}</div>
-      ${(!justice)?`<div class="misjudge">진범은 붙잡히지 않았다. ${esc((byId(jailedId)||{name:'다른 사람'}).name)}만 억울하게 갇힌 채, 이현선은 조용히 회사에 남았다.</div>`:''}
-      <div class="fstory">${paras.map(p=>`<p class="${p.cls||''}${p.me?' mine':''}">${esc(p.t)}${p.me?' <span class="you">← 나</span>':''}</p>`).join('')}</div>
-      <div class="fmeta">범인 지목 성공 ${winners.length}명 · 실패 ${losers.length}명</div>
-      <div style="text-align:center;margin:16px 0 6px"><button class="btn big" onclick="location.hash='#/ending'">📖 사건의 진상 자세히 보기</button></div>
-      <div class="frank-wrap">${finaleRanking()}</div>
-      <div style="text-align:center;margin-top:14px"><button class="btn ghost" onclick="document.getElementById('finale').remove()">닫기</button></div>
-    </div>`;
-  requestAnimationFrame(()=>el.classList.add('go2'));
-  if(navigator.vibrate) try{ navigator.vibrate([60,40,60,40,200]); }catch(e){}
+  requestAnimationFrame(()=>el.classList.add('go'));
+  if(navigator.vibrate) try{ navigator.vibrate(stage===1?(v.justice?[120,60,120]:[300]):60); }catch(e){}
 }
 document.addEventListener('change', e=>{
   const t=e.target; if(t.matches && t.matches('.chk input')){ const d=ded(); d.grade[t.dataset.k]=d.grade[t.dataset.k]||[]; d.grade[t.dataset.k][+t.dataset.i]=t.checked; store.set(K('ded'),d); const sc=scoreOf(d); sc.s.forEach((v,k)=>{ const el=$('#gpt'+k); if(el) el.textContent=v; }); }
 });
-function finishGrade(){ const d=ded(); d.graded=true; store.set(K('ded'),d); renderGrade(); autoSubmit().then(()=>{ if(location.hash==='#/grade') renderGrade(); });
-  if(SSTATE && SSTATE.finale){ setTimeout(()=>playFinale(), 400); } }
+function finishGrade(){ const d=ded(); d.graded=true; store.set(K('ded'),d); renderGrade(); autoSubmit().then(()=>{ if(location.hash==='#/grade') renderGrade(); }); }
 async function autoSubmit(){ if(!SYNC||!me()) return; const ch=byId(me()); const d=ded(); const sc=scoreOf(d); const ok=await sput(`subs/${ch.id}`, {id:ch.id,n:ch.name,a1:d.a1,a2c:d.a2c,a2m:d.a2m,a3p:d.a3p,a3t:d.a3t,a4:d.a4,s:sc.s,t:sc.total,l:sc.label,at:new Date().toISOString().slice(0,16)}); store.set(K('autosent'), ok); }
 function unGrade(){ const d=ded(); d.graded=false; store.set(K('ded'),d); renderGrade(); }
 function b64e(s){ return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }

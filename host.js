@@ -130,9 +130,9 @@ function liveBoard(){
   const info = ROUND_INFO[cur]||ROUND_INFO.lobby;
   return `<div class="rb-nowbox ${cur}"><div class="rb-now">${info.n} · ${esc(info.title)}</div><div class="rb-desc">${esc(info.desc)}</div></div>
     <div class="livehead"><div><div class="lbl">현재 단계</div><div class="cur">${RNAME[cur]}</div></div>
-      ${next? `<button class="btn big" onclick="advanceRound('${next}')">${cur==='lobby'?'ROUND 1 시작':(RNAME[cur]+' 종료 → '+RNAME[next]+' 시작')}</button>` : `<button class="btn big" style="background:var(--red)" onclick="startFinale()">🎬 최종 연출 시작(전원 폰)</button>`}
+      ${next? `<button class="btn big" onclick="advanceRound('${next}')">${cur==='lobby'?'ROUND 1 시작':(RNAME[cur]+' 종료 → '+RNAME[next]+' 시작')}</button>` : ''}
     </div>
-    ${cur==='ending'? `<p class="hint">전원 채점이 끝나면 위 버튼을 누르세요. 각자 폰에서 범인 정답/오답에 따라 검거·미제 연출이 재생됩니다.</p>`:''}
+    ${cur==='ending'? finaleControls() : ''}
     <div class="rsteps">${ROUND_ORDER.slice(1).map((k,i)=>`<span class="${i+1<=idx?'done':''} ${k===cur?'now':''}">${RNAME[k].replace('ROUND ','R')}</span>`).join('')}</div>
     <p class="hint">버튼을 누르면 모든 플레이어 폰에 “${RNAME[cur]} 종료 → 다음 라운드 시작” 화면이 뜨고, 해당 라운드 카드와 조사 토큰이 자동으로 열립니다. 잘못 눌렀으면 아래 되돌리기.</p>
     ${idx>0? `<div style="text-align:right;margin:-6px 0 10px"><button class="lnk small" onclick="if(confirm('${RNAME[ROUND_ORDER[idx-1]]}(으)로 되돌릴까요?')) advanceRound('${ROUND_ORDER[idx-1]}')">← ${RNAME[ROUND_ORDER[idx-1]]}(으)로 되돌리기</button></div>`:''}
@@ -142,7 +142,17 @@ function liveBoard(){
     </table>
     <p class="hint">열린 단서 ${Object.keys(claims).length}/33 · 공개 ${Object.keys(shared).length}건 · 제출 ${Object.keys(subs).length}/12</p>`;
 }
-async function startFinale(){ if(!SYNC) return; await sput('finale', Date.now()); alert('전원 폰에서 최종 연출을 재생합니다. (채점을 마친 사람만 보입니다)'); }
+function finaleControls(){
+  const cur=(SSTATE&&+SSTATE.finaleStage)||0;
+  const steps=[[1,'① 판결 공개'],[2,'② 진범 공개'],[3,'③ 결말 공개'],[4,'④ 진상 공개'],[5,'⑤ 랭킹 공개']];
+  return `<div class="finctrl">
+    <div class="fc-h">🎬 최종 연출 · 진행자가 장면을 넘깁니다 (전원 폰 동시 전환)</div>
+    <p class="hint">전원 채점이 끝난 것을 확인한 뒤 ①부터 순서대로 누르세요. 누르면 모든 플레이어 폰이 같은 장면으로 바뀝니다.</p>
+    <div class="fc-steps">${steps.map(([n,l])=>`<button class="btn ${cur>=n?'done':(cur+1===n?'':'ghost')}" ${cur+1<n?'style=\"opacity:.5\"':''} onclick="setFinaleStage(${n})">${cur>=n?'✓ ':''}${l}</button>`).join('')}</div>
+    <div style="text-align:right;margin-top:8px"><button class="lnk small" onclick="setFinaleStage(0)">연출 초기화</button></div>
+  </div>`;
+}
+async function setFinaleStage(n){ if(!SYNC) return; await sput('finaleStage', n); await pollOnce(); const el=document.getElementById('live'); if(el) el.innerHTML=liveBoard(); }
 async function advanceRound(next){
   if(!SYNC) return;
   const ok = await sput('round', next) && await sput('roundAt', Date.now());

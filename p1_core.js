@@ -49,12 +49,11 @@ onSync((st, prev)=>{
     if(roundIdx(r)>roundIdx(lastRound)) showRoundOverlay(lastRound, r, META.tokens[r]?`조사 토큰 +${META.tokens[r]}`:'');
     lastRound=r; store.set('seenRound', r);
   }
-  if(st.finale && me() && store.get('finaleSeen',0)!==st.finale){
-    const first = store.get('finaleSeen',0)===0 && lastRound===null;
-    store.set('finaleSeen', st.finale);
-    if(!first){
-      if(ded().graded){ playFinale(); }
-      else if(ded().submitted){ location.hash='#/grade'; renderGrade(); }  // 제출은 했는데 채점 전이면 채점화면으로
+  if(me() && st.finaleStage){
+    const cur = +st.finaleStage;
+    if(store.get('finaleStageSeen',-1)!==cur){
+      store.set('finaleStageSeen', cur);
+      if(cur>=1) renderFinaleStage(cur);
     }
   }
   const h=location.hash;
