@@ -39,7 +39,7 @@ function paneDeduce(ch){
   if(d.submitted){
     html += endingOpen
       ? `<a class="rowbtn grade" href="#/grade" style="margin-top:4px"><div><b>✅ 채점하기</b><span>엔딩이 열렸습니다. 채점 화면으로 이동합니다.</span></div><span class="chev">›</span></a>`
-      : `<div class="panel c-amb"><h3>다음 단계</h3><p style="margin:0;font-size:15px">모두 제출한 뒤 진행자가 엔딩 코드를 알려주면 <a href="#/ending" style="color:var(--red)">엔딩북</a>이 열리고, 홈의 <b>✅ 채점하기</b>에서 채점합니다.</p></div>`;
+      : `<div class="panel c-amb"><h3>✅ 제출 완료 · 대기 중</h3><p style="margin:0;font-size:15px">답안이 제출되었습니다. <b>다른 사람들도 모두 제출</b>하고 진행자가 <b>최종 연출</b>을 시작하면, 이 화면에서 바로 채점이 시작됩니다.<br><span class="small">그때까지 기다리시면 됩니다. (수정하려면 위 ‘수정하기’)</span></p></div>`;
   }
   return html;
 }
@@ -144,52 +144,61 @@ function weaveNames(ids){
   return nm.slice(0,-1).join(', ')+', 그리고 '+nm[nm.length-1];
 }
 function playFinale(){
-  const d = ded(); const sc = scoreOf(d); const caught = sc.culpritOk;
+  const d = ded(); const myGraded = d.graded; const sc = myGraded? scoreOf(d) : null;
   const culprit = CHARS.find(c=>c.name===HOST_RUBRIC[1].culprit) || byId('hyunsun');
-  const st = (ENDING.stories && ENDING.stories[sc.label]) || {tag:'',head:[],tail:[],winLead:'',loseLead:''};
-  const endName = {perfect:'PERFECT END',true:'TRUE END',normal:'NORMAL END',bad:'BAD END'}[sc.label];
-  // 전원 결과로 승진/좌천 분기
-  const res = allResults();
-  const winners = Object.keys(res).filter(id=>res[id].caught);
-  const losers  = Object.keys(res).filter(id=>!res[id].caught);
-  const paras = [];
-  st.head.forEach(l=>paras.push({t:l}));
-  // 승진조
-  if(winners.length){
-    paras.push({t: st.winLead, cls:'lead win'});
-    winners.forEach(id=>{ if(FATE[id]) paras.push({t: FATE[id][0], cls:'fate win', me: id===me()}); });
-  }
-  // 좌천조
-  if(losers.length){
-    paras.push({t: st.loseLead, cls:'lead lose'});
-    losers.forEach(id=>{ if(FATE[id]) paras.push({t: FATE[id][1], cls:'fate lose', me: id===me()}); });
-  }
-  if(!winners.length && !losers.length){ paras.push({t:'(다른 참가자들의 채점이 아직 모이지 않았습니다. 잠시 후 다시 열면 모두의 결말이 이어집니다.)', cls:'muted'}); }
-  // 이연규(불참) 후일담 + 조사자 크레딧
-  if(st.yeongyuCarrier || st.yeongyuEpi){
-    const claims=(SSTATE&&SSTATE.claims)||{};
-    const carriers=[...new Set([0,1,2].map(i=>claims['yeongyu_'+i]?.by).filter(Boolean))];
-    // 내가 조사했으면 로컬도 반영
-    const myAcqY = me()? store.get(K('acq'),[]).some(a=>a.o==='yeongyu') : false;
-    if(myAcqY && !carriers.includes(me())) carriers.push(me());
-    if(st.yeongyuCarrier && carriers.length){
-      const who = weaveNames(carriers);
-      const mine = carriers.includes(me());
-      paras.push({t: st.yeongyuCarrier.replace('{who}', who), cls:'fate '+(sc.culpritOk?'win':'lose'), me: mine});
-    }
-    if(st.yeongyuEpi) paras.push({t: st.yeongyuEpi, cls:'yeon'});
-  }
-  st.tail.forEach(l=>paras.push({t:l}));
-  const el=document.createElement('div'); el.className='finale'+(caught?' win':' lose'); el.id='finale';
+  // 전원 투표 집계 (동기화된 제출 + 내 제출)
+  const subs = Object.assign({}, (SSTATE&&SSTATE.subs)||{});
+  if(me()){ const dd=ded(); if(dd.submitted) subs['__me']={id:me(), a2c:dd.a2c, t: dd.graded? scoreOf(dd).total: null, l: dd.graded? scoreOf(dd).label: null}; }
+  const votes={}; Object.values(subs).forEach(v=>{ if(v&&v.a2c) votes[v.a2c]=(votes[v.a2c]||0)+1; });
+  let topId=null, topN=0; Object.keys(votes).forEach(id=>{ if(votes[id]>topN){ topN=votes[id]; topId=id; } });
+  const jailedId = topId || culprit.id;                 // 최다 득표자
+  const justice = jailedId===culprit.id;                // 정답이면 정의구현
+  const jailed = byId(jailedId)===undefined && jailedId==='yeongyu' ? YEONGYU : byId(jailedId);
+  window.__fin={justice, jailedId};
+  const el=document.createElement('div'); el.className='finale stage1 '+(justice?'win':'lose'); el.id='finale';
   el.innerHTML = `
     <div class="bars-anim" aria-hidden="true">${Array.from({length:9},()=>'<i></i>').join('')}</div>
     <div class="fstage">
-      <div class="fline1">${caught?'용의자 검거':'미제 사건'}</div>
-      <div class="fspot">
-        <div class="mug"><img src="${img('photo_'+culprit.id)}" alt=""><div class="board">${caught?'GUILTY':'ESCAPED'}</div></div>
-      </div>
-      <div class="fname">진짜 범인 — ${esc(culprit.name)}</div>
+      <div class="fline1">${justice?'판결 — 유죄':'판결 — 오심'}</div>
+      <div class="fspot"><div class="mug"><img src="${img('photo_'+jailedId)}" alt=""><div class="board">GUILTY</div></div></div>
+      <div class="fname">${esc(jailed?jailed.name:'?')} · 최다 득표 ${topN}표</div>
+      <div class="fend ${justice?'true':'bad'}">${justice?'배심원단은 진범을 정확히 지목했다.':'배심원단은 엉뚱한 사람을 지목했다. 그는 억울하게 갇혔다.'}</div>
+      <button class="btn" onclick="finaleStage2()">${justice?'▶ 진범 확인':'▶ 그렇다면, 진짜 범인은?'}</button>
+    </div>`;
+  document.body.appendChild(el);
+  if(navigator.vibrate) try{ navigator.vibrate(justice?[120,60,120]:[300]); }catch(e){}
+  requestAnimationFrame(()=>el.classList.add('go'));
+}
+function finaleStage2(){
+  const justice=window.__fin.justice, jailedId=window.__fin.jailedId;
+  const d = ded(); const myGraded = d.graded; const sc = myGraded? scoreOf(d): {culpritOk:false,label:'bad',s:[0,0,0,0],total:0};
+  const culprit = CHARS.find(c=>c.name===HOST_RUBRIC[1].culprit) || byId('hyunsun');
+  const st = (ENDING.stories && ENDING.stories[sc.label]) || {tag:'',head:[],tail:[],winLead:'',loseLead:''};
+  const endName = {perfect:'PERFECT END',true:'TRUE END',normal:'NORMAL END',bad:'BAD END'}[sc.label];
+  const res = allResults();
+  const winners = Object.keys(res).filter(id=>res[id].caught);
+  const losers  = Object.keys(res).filter(id=>!res[id].caught);
+  const paras=[];
+  st.head.forEach(l=>paras.push({t:l}));
+  if(winners.length){ paras.push({t:st.winLead,cls:'lead win'}); winners.forEach(id=>{ if(FATE[id]) paras.push({t:FATE[id][0],cls:'fate win',me:id===me()}); }); }
+  if(losers.length){ paras.push({t:st.loseLead,cls:'lead lose'}); losers.forEach(id=>{ if(FATE[id]) paras.push({t:FATE[id][1],cls:'fate lose',me:id===me()}); }); }
+  if(st.yeongyuCarrier || st.yeongyuEpi){
+    const claims=(SSTATE&&SSTATE.claims)||{};
+    const carriers=[...new Set([0,1,2].map(i=>claims['yeongyu_'+i]?.by).filter(Boolean))];
+    if(me() && store.get(K('acq'),[]).some(a=>a.o==='yeongyu') && !carriers.includes(me())) carriers.push(me());
+    if(st.yeongyuCarrier && carriers.length) paras.push({t: st.yeongyuCarrier.replace('{who}', weaveNames(carriers)), cls:'fate '+(sc.culpritOk?'win':'lose'), me: carriers.includes(me())});
+    if(st.yeongyuEpi) paras.push({t: st.yeongyuEpi, cls:'yeon'});
+  }
+  st.tail.forEach(l=>paras.push({t:l}));
+  const el=document.getElementById('finale'); if(!el) return;
+  el.className='finale stage2 reveal';
+  el.innerHTML = `
+    <div class="fstage">
+      <div class="fline1 red">진짜 범인</div>
+      <div class="fspot big"><div class="mug red"><img src="${img('photo_'+culprit.id)}" alt=""><div class="board">${justice?'GUILTY':'ESCAPED'}</div></div></div>
+      <div class="fname red">${esc(culprit.name)}</div>
       <div class="fend ${sc.label}">${endName} · ${esc(st.tag)}</div>
+      ${(!justice)?`<div class="misjudge">진범은 붙잡히지 않았다. ${esc((byId(jailedId)||{name:'다른 사람'}).name)}만 억울하게 갇힌 채, 이현선은 조용히 회사에 남았다.</div>`:''}
       <div class="fstory">${paras.map(p=>`<p class="${p.cls||''}${p.me?' mine':''}">${esc(p.t)}${p.me?' <span class="you">← 나</span>':''}</p>`).join('')}</div>
       <div class="fmeta">범인 지목 성공 ${winners.length}명 · 실패 ${losers.length}명</div>
       ${finaleRanking()}
@@ -198,9 +207,8 @@ function playFinale(){
         <button class="btn ghost" onclick="document.getElementById('finale').remove()">닫기</button>
       </div>
     </div>`;
-  document.body.appendChild(el);
-  if(navigator.vibrate) try{ navigator.vibrate(caught?[120,60,120,60,240]:[300]); }catch(e){}
-  requestAnimationFrame(()=>el.classList.add('go'));
+  requestAnimationFrame(()=>el.classList.add('go2'));
+  if(navigator.vibrate) try{ navigator.vibrate([60,40,60,40,200]); }catch(e){}
 }
 document.addEventListener('change', e=>{
   const t=e.target; if(t.matches && t.matches('.chk input')){ const d=ded(); d.grade[t.dataset.k]=d.grade[t.dataset.k]||[]; d.grade[t.dataset.k][+t.dataset.i]=t.checked; store.set(K('ded'),d); const sc=scoreOf(d); sc.s.forEach((v,k)=>{ const el=$('#gpt'+k); if(el) el.textContent=v; }); }

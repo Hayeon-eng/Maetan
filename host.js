@@ -52,7 +52,6 @@ function render(){
     ${acc('마스터 타임라인 · 실제로 일어난 일', `<ul class="tl">${HOST.masterTimeline.map(([t,d])=>`<li><div class="t">${esc(t)}</div><div class="d">${esc(d)}</div></li>`).join('')}</ul>`)}
     ${acc('추리 경로 · 핵심 진실별 두 갈래', `<dl class="kv">${HOST.cluePaths.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`)}
     ${acc('채점 기준 · TRUE END 판정', `<dl class="kv">${HOST.judging.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`)}
-    ${acc('9~12인 조정', `<dl class="kv">${HOST.playerCount.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`)}
     ${acc('게임 초기화 · 새 게임 시작', `<p class="hint">서버가 없어 플레이어 폰을 원격으로 지울 수는 없습니다. 대신 <b>새 게임 코드</b>가 붙은 링크를 배포하면, 그 링크로 여는 모든 폰이 깨끗한 상태로 시작합니다. (이전 링크의 기록은 남지만 새 링크에는 영향이 없습니다.)</p>
       <div class="panel"><h3>플레이어용 링크</h3><div class="codebox" id="glink">${esc(playerLink())}</div>
         ${SYNC?`<p class="small" style="margin:8px 0 0">진행자도 같은 게임 코드로 열어야 합니다: <a href="${esc(hostLink())}" style="color:var(--red)">${esc(hostLink())}</a></p>`:''}

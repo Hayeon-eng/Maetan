@@ -50,9 +50,9 @@ onSync((st, prev)=>{
     lastRound=r; store.set('seenRound', r);
   }
   if(st.finale && me() && store.get('finaleSeen',0)!==st.finale){
-    const first = store.get('finaleSeen',0)===0 && lastRound===null;  // 첫 로드에서 이미 finale가 있던 경우엔 자동재생만 안 함(수동으로 볼 수 있음)
+    const first = store.get('finaleSeen',0)===0 && lastRound===null;
     store.set('finaleSeen', st.finale);
-    if(ded().graded && !first) playFinale();
+    if(!first) playFinale();
   }
   const h=location.hash;
   if(h.startsWith('#/inv/')) renderInv(h.split('/')[2]);
@@ -123,7 +123,7 @@ function renderHome(){
     ${acc('사건 개요 · 그리고 이번에는 사람이 죽었다', `<dl class="kv">${RULES.scene.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${md(v)}</dd>`).join('')}</dl><div class="panel c-red" style="margin-top:14px"><h3>오늘 밤의 질문</h3><p style="margin:0">${esc(RULES.question)}</p></div><p class="hint">캐릭터북과 공개된 카드에 적힌 사실만 사용합니다. 진행자가 아직 공개하지 않은 자료는 미리 열람하지 않습니다.</p>`)}
     ${acc('게임 규칙 · 진행 흐름과 대화 규칙', `<ul class="tl navy">${RULES.flow.map(([t,h,d])=>`<li><div class="t">${esc(t)}</div><div class="d"><b>${esc(h)}</b><br>${esc(d)}</div></li>`).join('')}</ul>
       <dl class="kv" style="margin-top:14px">${RULES.talking.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
-      <div class="panel c-amb" style="margin-top:14px"><h3>조사 토큰</h3><p style="margin:0;font-size:15px">다른 플레이어의 개인 단서를 1장 열어볼 때 <b>내 토큰 1개</b>를 씁니다. 시작 ${META.tokens.start}개, ROUND 2·3·4 코드 입력 시 각 1개가 추가됩니다. 내 단서는 토큰 없이 봅니다. 열어본 단서는 내 화면의 ‘획득 단서’에 남습니다.${SYNC?' <b>한 단서는 한 사람만 조사할 수 있고</b>, 이미 조사된 단서는 그 사람이 공개해 줘야 볼 수 있습니다.':''}</p></div>`)}
+      <div class="panel c-amb" style="margin-top:14px"><h3>조사 토큰</h3><p style="margin:0;font-size:15px">다른 플레이어의 개인 단서를 1장 열어볼 때 <b>내 토큰 1개</b>를 씁니다. 시작 ${META.tokens.start}개, ROUND 2·3 코드 입력 시 각 1개가 추가됩니다(총 3개). 내 단서는 토큰 없이 봅니다. 열어본 단서는 내 화면의 ‘획득 단서’에 남습니다.${SYNC?' <b>한 단서는 한 사람만 조사할 수 있고</b>, 이미 조사된 단서는 그 사람이 공개해 줘야 볼 수 있습니다.':''}</p></div>`)}
     ${acc('최종 추리 · 네 가지 항목', `${RULES.finalItems.map(([n,t,d])=>`<div class="panel"><h3>${n}. ${esc(t)}</h3><p style="margin:0;font-size:15px">${esc(d)}</p></div>`).join('')}<div class="panel c-amb"><h3>TRUE END 기준</h3><p style="margin:0;font-size:15px">${esc(RULES.trueEnd)}</p></div><p class="hint">제출은 내 화면의 <b>추리</b> 탭에서 합니다.</p>`)}
 
     <div class="section-h"><span>공개 정보 · 누구나 볼 수 있음</span></div>

@@ -6,7 +6,7 @@ function renderShared(sub){
   ${topbar('진행자 공개 단서','#/')}
   ${modebar('shared', '모든 플레이어가 같은 내용을 봅니다')}
   <main class="wrap" style="padding-top:16px">
-    <p class="hint" style="color:var(--dim)">진행자가 라운드마다 알려주는 4자리 코드를 입력하면 봉인이 풀립니다. ROUND 2·3·4 코드는 내 조사 토큰도 1개씩 추가합니다.</p>
+    <p class="hint" style="color:var(--dim)">진행자가 라운드마다 알려주는 4자리 코드를 입력하면 봉인이 풀립니다. ROUND 2·3 코드는 내 조사 토큰도 1개씩 추가합니다(총 3개).</p>
     ${HOST_CARDS.map((c,i)=>envelope(c,i,rounds)).join('')}
     <p class="foot">${esc(META.version)}</p>
   </main>`;
