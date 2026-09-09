@@ -124,3 +124,25 @@ const ROUND_INFO = {
   final:{n:"FINAL", title:"최종 추리 제출", desc:"▶ 지금 할 일: 내 화면 ‘추리’ 탭에서 네 가지 항목을 작성하고 제출하세요. 제출 후에는 수정이 잠깁니다."},
   ending:{n:"ENDING", title:"결과 공개", desc:"진행자가 최종 연출을 시작하면 판결·진범·결말·랭킹이 공개됩니다."}
 };
+
+// 공간 구조도용: 각 인물의 주요 행적 공간 (평면도 배치)
+// zone: exec(28층 임원실) / corridor(28층 복도·엘베) / meet28(28층 회의실) / seat(사무 구역) / meet8(8층 회의실) / out(사옥 밖) / print(프린터·B2 등)
+const FLOOR_PLAN = {
+  victim: { zone:'exec', label:'조성혁 (피해자)' },
+  zones: {
+    exec:     { name:'28층 임원실', sub:'사건 현장', x:56, y:8,  w:30, h:30 },
+    corridor: { name:'28층 복도 · 엘리베이터', sub:'', x:14, y:20, w:42, h:14 },
+    meet28:   { name:'28층 구석 회의실', sub:'', x:14, y:8,  w:42, h:12 },
+    seat:     { name:'사무 구역 (각자 자리)', sub:'', x:14, y:44, w:52, h:22 },
+    meet8:    { name:'8층 회의실', sub:'', x:70, y:44, w:26, h:22 },
+    out:      { name:'사옥 밖', sub:'외부 미팅', x:70, y:8,  w:26, h:14 },
+    print:    { name:'프린터 · 지하 2층', sub:'', x:70, y:24, w:26, h:16 }
+  },
+  // 인물별 주요 위치 (여러 곳이면 배열)
+  people: {
+    hyunsun:['seat','exec'], soyeon:['exec','print'], junyoung:['exec','corridor'],
+    hyunjung:['seat','exec'], siyun:['out','seat'], jinwoo:['meet8'],
+    yeongyu:['seat','print'], jiyeon:['exec','corridor'], minkyung:['seat'],
+    kyungmin:['meet28'], yujin:['seat','exec'], hayeon:['print']
+  }
+};
