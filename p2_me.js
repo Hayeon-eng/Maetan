@@ -163,6 +163,18 @@ function renderInv(id){
     <p class="hint" style="color:var(--dim)">상대 화면에는 아무 표시도 남지 않습니다. 열어본 내용을 말로 공개할지는 내 선택입니다.</p>
   </main>`;
 }
+function tearEnvelope(i, done){
+  try{
+    const host=$('#clue-'+i); if(!host){ done(); return; }
+    const face=host.querySelector('.sealface')||host;
+    const ov=document.createElement('div'); ov.className='tear';
+    ov.innerHTML='<div class="tf tl"></div><div class="tf tr"></div><div class="trip">개봉</div>';
+    face.style.position='relative'; face.appendChild(ov);
+    requestAnimationFrame(()=>ov.classList.add('go'));
+    if(navigator.vibrate) try{ navigator.vibrate(30); }catch(e){}
+  }catch(e){}
+  setTimeout(done, 500);   // 애니메이션 성패와 무관하게 항상 실행
+}
 async function investigate(ownerId, i){
   const ts = tokenState(); if(ts.left<=0) return;
   const btn = document.querySelector(`#clue-${i} .btn`); if(btn){ btn.disabled=true; btn.textContent='확인 중…'; }

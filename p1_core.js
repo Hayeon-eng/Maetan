@@ -32,7 +32,7 @@ function route(){
   renderHome();
 }
 window.addEventListener('hashchange', route);
-window.addEventListener('DOMContentLoaded', ()=>{ route(); startSync(3000); if(SYNC){ pollOnce().then(()=>{ const h=location.hash; if(h===''||h==='#/'||h==='#/shared') route(); }); } });
+window.addEventListener('DOMContentLoaded', ()=>{ route(); startSync(1200); if(SYNC){ pollOnce().then(()=>{ const h=location.hash; if(h===''||h==='#/'||h==='#/shared') route(); }); } });
 let lastRound = null;
 onSync((st, prev)=>{
   if(st.reset && store.get('resetSeen',0)!==st.reset){

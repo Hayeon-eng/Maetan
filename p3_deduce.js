@@ -167,6 +167,7 @@ function verdictInfo(){
   return {culprit, jailedId, justice, topN, jailed:(jailedId==='yeongyu'?YEONGYU:byId(jailedId)), grade, avg, solvers, total:list.length};
 }
 // 진행자가 넘긴 stage(1~5)에 맞춰 전원 폰이 같은 장면을 그린다
+function closeFinale(){ const e=document.getElementById('finale'); if(e) e.remove(); }
 function renderFinaleStage(stage){
   const v = verdictInfo();
   const d = ded(); const graded = d.graded; const sc = graded? scoreOf(d) : {culpritOk:v.justice,label: v.justice?'normal':'bad',s:[0,0,0,0],total:0};
@@ -177,21 +178,23 @@ function renderFinaleStage(stage){
     el.innerHTML = `<div class="bars-anim" aria-hidden="true">${Array.from({length:9},()=>'<i></i>').join('')}</div>
       <div class="fstage">
         <div class="fline1">${v.justice?'판결 — 유죄':'판결 — 오심'}</div>
+        <div class="fsub">${v.justice?'배심원단이 가장 많이 지목한 사람이 진범과 일치했다. 정의의 철창이 내려온다.':'배심원단이 가장 많이 지목한 사람은 진짜 범인이 아니었다. 억울한 사람이 갇힌다.'}</div>
         <div class="fspot ${v.justice?'justice':'wrong'}">
           ${v.justice?'<div class="confetti" aria-hidden="true">'+Array.from({length:24},(_,k)=>`<i style="--i:${k}"></i>`).join('')+'</div>':'<div class="shadow" aria-hidden="true"><span>?</span></div>'}
           <div class="mug"><img src="${img('photo_'+v.jailedId)}" alt=""><div class="board">GUILTY</div></div>
         </div>
         <div class="fname">${esc(v.jailed?v.jailed.name:'?')} · 최다 득표 ${v.topN}표</div>
         <div class="fend ${v.justice?'true':'bad'}">${v.justice?'배심원단은 진범을 정확히 지목했다.':'배심원단은 엉뚱한 사람을 지목했다.'}</div>
-        <div class="fwait">다음 장면은 진행자가 넘깁니다…</div>
+        
       </div>`;
   } else if(stage===2){
     el.innerHTML = `<div class="fstage">
         <div class="fline1 red">진짜 범인</div>
+        <div class="fsub">${v.justice?'그날 밤, 조성혁을 죽인 진짜 손은 이 사람이었다.':'배심원단이 놓친 진짜 범인. 그는 지금도 이 회사 어딘가에 있다.'}</div>
         <div class="fspot big"><div class="mug red"><img src="${img('photo_'+v.culprit.id)}" alt=""><div class="board">${v.justice?'GUILTY':'ESCAPED'}</div></div></div>
         <div class="fname red">${esc(v.culprit.name)}</div>
         ${(!v.justice)?`<div class="misjudge">진범은 붙잡히지 않았다. ${esc(v.jailed?v.jailed.name:'다른 사람')}만 억울하게 갇힌 채, ${esc(v.culprit.name)}은 조용히 회사에 남았다.</div>`:''}
-        <div class="fwait">다음 장면은 진행자가 넘깁니다…</div>
+        
       </div>`;
   } else if(stage===3){
     const st=(ENDING.stories&&ENDING.stories[v.grade])||{tag:'',head:[],tail:[],winLead:'',loseLead:'',yeongyuEpi:'',yeongyuCarrier:''};
@@ -228,20 +231,25 @@ function renderFinaleStage(stage){
     el.innerHTML = `<div class="fstage scroll">
         <div class="fline1 ${v.grade}">${endName}</div>
         <div class="fend ${v.grade}">${esc(st.tag)} · 배심원단 평균 ${v.avg.toFixed(1)}/4</div>
-        <div class="fstory">${paras.map(p=>`<p class="${p.cls||''}${p.me?' mine':''}">${esc(p.t)}${p.me?' <span class="you">← 나</span>':''}</p>`).join('')}</div>
-        <div class="fwait">다음 장면은 진행자가 넘깁니다…</div>
+        <div class="fstory">${paras.map(p=>`<p class="${p.cls||''}${p.me?' mine':''}">${md(p.t)}${p.me?' <span class="you">← 나</span>':''}</p>`).join('')}</div>
+        
       </div>`;
   } else if(stage===4){
     el.innerHTML = `<div class="fstage scroll light">
         <div class="fline1">사건의 진상</div>
-        <div class="truthbox">${ENDING.truths.map(([k,vv])=>`<div class="tb"><h4>${esc(k)}</h4><p>${esc(vv)}</p></div>`).join('')}</div>
-        <div class="fwait">다음 장면은 진행자가 넘깁니다…</div>
+        <div class="fsub">그날 밤 매탄동에서 실제로 벌어진 네 가지 진실.</div>
+        <div class="truthbox">
+          ${ENDING.truths.map(([k,vv])=>`<div class="tb"><h4>${esc(k)}</h4><p>${esc(vv)}</p></div>`).join('')}
+          ${ENDING.deep.map(([k,vv])=>`<div class="tb deep"><h4>${esc(k)}</h4><p>${esc(vv)}</p></div>`).join('')}
+          <div class="tb"><h4>각 인물의 밤</h4><dl class="tbkv">${ENDING.aftermath.map(([k,vv])=>`<dt>${esc(k)}</dt><dd>${esc(vv)}</dd>`).join('')}</dl></div>
+        </div>
       </div>`;
   } else if(stage===5){
     el.innerHTML = `<div class="fstage scroll">
         <div class="fline1">최종 결과</div>
-        <div class="frank-wrap">${finaleRanking()}</div>
-        <div style="text-align:center;margin-top:16px"><button class="btn ghost" onclick="document.getElementById('finale').remove()">닫기</button></div>
+        <div class="fsub">누가 진실에 가장 가까이 다가갔는가.</div>
+        <div class="frank-wrap">${finaleRanking() || '<p style=\"color:#bbb;text-align:center\">채점을 마친 사람이 아직 없습니다.</p>'}</div>
+        <div style="text-align:center;margin-top:18px"><button class="btn" onclick="closeFinale()">닫기</button></div>
       </div>`;
   }
   requestAnimationFrame(()=>el.classList.add('go'));
