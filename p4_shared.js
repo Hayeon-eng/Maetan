@@ -16,28 +16,28 @@ function alibiList(){ return `<div class="alibi-list">${CHARS.map(ch=>`<div clas
 const GCOL = {exec:'#C8322B', seat:'#2F5A46', out:'#2D3B5E', room:'#C99A3A', room2:'#8a6a1f', hall:'#8a7f73', unk:'url(#hatch)'};
 const GLBL = {exec:'임원실', seat:'자기 자리', out:'사옥 밖', room:'회의실', room2:'발표 중', unk:'시간·위치 불명(진술 기준)'};
 function floorPlan(){
-  const F=FLOOR_PLAN; const W=340, H=300;
-  const px=v=>v/100*W, py=v=>v/100*H;
-  let s=`<div class="gscroll"><svg viewBox="0 0 ${W} ${H}" class="floor" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="사옥 공간 구조도">`;
-  s+=`<rect x="2" y="2" width="${W-4}" height="${H-4}" rx="8" fill="#fbf8f1" stroke="#d4c9b2"/>`;
-  Object.keys(F.zones).forEach(z=>{
-    const Z=F.zones[z]; const isExec=(z==='exec');
-    const x=px(Z.x), y=py(Z.y), w=px(Z.w), h=py(Z.h);
-    s+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${isExec?'#F6E3E1':'#F3EEE2'}" stroke="${isExec?'#C8322B':'#cdbf9c'}" stroke-width="${isExec?2.5:1}"/>`;
-    s+=`<text x="${x+8}" y="${y+16}" font-size="11.5" font-weight="700" fill="${isExec?'#C8322B':'#3f3733'}">${esc(Z.name)}</text>`;
-    if(Z.sub) s+=`<text x="${x+8}" y="${y+30}" font-size="9.5" fill="${isExec?'#C8322B':'#8a7f73'}">${esc(Z.sub)}</text>`;
-    if(isExec){
-      // 피해자 위치 표시
-      const cx=x+w-16, cy=y+h-16;
-      s+=`<circle cx="${cx}" cy="${cy}" r="7" fill="#C8322B"/>`;
-      s+=`<circle cx="${cx}" cy="${cy}" r="12" fill="none" stroke="#C8322B" stroke-width="1.5" opacity=".5"/>`;
-      s+=`<text x="${cx}" y="${cy-16}" font-size="9.5" font-weight="700" fill="#C8322B" text-anchor="middle">피해자 발견</text>`;
-    }
-  });
-  s+=`</svg></div>`;
-  s+=`<div class="legend"><span><i style="background:#C8322B;border-radius:50%;width:10px;height:10px"></i>조성혁(피해자)이 발견된 위치 · 28층 임원실</span></div>`;
-  s+=`<p class="hint" style="margin-top:8px">사옥의 주요 공간 배치도입니다. 피해자는 <b>28층 임원실</b>에서 발견됐습니다. 각 인물이 어디에 있었는지는 공개 알리바이와 대화로 알아내세요.</p>`;
-  return s;
+  // 모바일 세로 카드형: 층별 섹션으로 명확히 구분
+  const F28=[
+    {name:'임원실', sub:'사건 현장 · 피해자 발견', victim:true},
+    {name:'복도 · 엘리베이터', sub:''},
+    {name:'구석 회의실', sub:'화상회의'}
+  ];
+  const FLow=[
+    {name:'사무 구역 (각자 자리)', sub:''},
+    {name:'8층 회의실', sub:''}
+  ];
+  const Fout=[
+    {name:'사옥 밖', sub:'외부 미팅'},
+    {name:'프린터 · 지하 2층', sub:'출력 · 수거장'}
+  ];
+  const cell=(z)=>`<div class="fcell ${z.victim?'victim':''}"><div class="fc-nm">${esc(z.name)}${z.victim?' <span class="vdot"></span>':''}</div>${z.sub?`<div class="fc-sub">${esc(z.sub)}</div>`:''}</div>`;
+  return `<div class="floorplan">
+    <div class="fsec f28"><div class="fsec-h">28층 <span>사건이 벌어진 층</span></div><div class="fgrid">${F28.map(cell).join('')}</div></div>
+    <div class="fsec"><div class="fsec-h">저층부</div><div class="fgrid">${FLow.map(cell).join('')}</div></div>
+    <div class="fsec"><div class="fsec-h">그 외</div><div class="fgrid">${Fout.map(cell).join('')}</div></div>
+    <div class="legend" style="margin-top:8px"><span><i class="vdot"></i>피해자(조성혁)가 발견된 위치 · 28층 임원실</span></div>
+    <p class="hint" style="margin-top:6px">사옥의 주요 공간입니다. 각 인물이 어디에 있었는지는 공개 알리바이·대화로 알아내세요.</p>
+  </div>`;
 }
 function alibiGraph(){
   const t0 = 19*60, t1 = 23*60+10, W=720, L=78, R=10, rowH=36, top=26;
