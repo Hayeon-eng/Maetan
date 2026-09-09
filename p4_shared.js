@@ -11,10 +11,34 @@ function renderShared(sub){
     <p class="foot">${esc(META.version)}</p>
   </main>`;
 }
-function setAlibiView(v){ store.set('alibiView',v); document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on', b.textContent===(v==='list'?'목록':'시간별 그래프'))); $('#alibiwrap').innerHTML = v==='graph'?alibiGraph():alibiList(); }
+function setAlibiView(v){ store.set('alibiView',v); const lbl={list:'목록',graph:'시간별 그래프',floor:'공간 구조도'}[v]; document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on', b.textContent===lbl)); $('#alibiwrap').innerHTML = v==='graph'?alibiGraph():(v==='floor'?floorPlan():alibiList()); }
 function alibiList(){ return `<div class="alibi-list">${CHARS.map(ch=>`<div class="item"><div class="who">${esc(ch.name)} <span>${esc(ch.group)}</span> ${fBadge(ch.faction)}</div><p>“${esc(ch.alibi)}”</p></div>`).join('')}</div>`; }
 const GCOL = {exec:'#C8322B', seat:'#2F5A46', out:'#2D3B5E', room:'#C99A3A', room2:'#8a6a1f', hall:'#8a7f73', unk:'url(#hatch)'};
 const GLBL = {exec:'임원실', seat:'자기 자리', out:'사옥 밖', room:'회의실', room2:'발표 중', unk:'시간·위치 불명(진술 기준)'};
+function floorPlan(){
+  const F=FLOOR_PLAN; const W=340, H=300;
+  const px=v=>v/100*W, py=v=>v/100*H;
+  let s=`<div class="gscroll"><svg viewBox="0 0 ${W} ${H}" class="floor" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="사옥 공간 구조도">`;
+  s+=`<rect x="2" y="2" width="${W-4}" height="${H-4}" rx="8" fill="#fbf8f1" stroke="#d4c9b2"/>`;
+  Object.keys(F.zones).forEach(z=>{
+    const Z=F.zones[z]; const isExec=(z==='exec');
+    const x=px(Z.x), y=py(Z.y), w=px(Z.w), h=py(Z.h);
+    s+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${isExec?'#F6E3E1':'#F3EEE2'}" stroke="${isExec?'#C8322B':'#cdbf9c'}" stroke-width="${isExec?2.5:1}"/>`;
+    s+=`<text x="${x+8}" y="${y+16}" font-size="11.5" font-weight="700" fill="${isExec?'#C8322B':'#3f3733'}">${esc(Z.name)}</text>`;
+    if(Z.sub) s+=`<text x="${x+8}" y="${y+30}" font-size="9.5" fill="${isExec?'#C8322B':'#8a7f73'}">${esc(Z.sub)}</text>`;
+    if(isExec){
+      // 피해자 위치 표시
+      const cx=x+w-16, cy=y+h-16;
+      s+=`<circle cx="${cx}" cy="${cy}" r="7" fill="#C8322B"/>`;
+      s+=`<circle cx="${cx}" cy="${cy}" r="12" fill="none" stroke="#C8322B" stroke-width="1.5" opacity=".5"/>`;
+      s+=`<text x="${cx}" y="${cy-16}" font-size="9.5" font-weight="700" fill="#C8322B" text-anchor="middle">피해자 발견</text>`;
+    }
+  });
+  s+=`</svg></div>`;
+  s+=`<div class="legend"><span><i style="background:#C8322B;border-radius:50%;width:10px;height:10px"></i>조성혁(피해자)이 발견된 위치 · 28층 임원실</span></div>`;
+  s+=`<p class="hint" style="margin-top:8px">사옥의 주요 공간 배치도입니다. 피해자는 <b>28층 임원실</b>에서 발견됐습니다. 각 인물이 어디에 있었는지는 공개 알리바이와 대화로 알아내세요.</p>`;
+  return s;
+}
 function alibiGraph(){
   const t0 = 19*60, t1 = 23*60+10, W=720, L=78, R=10, rowH=36, top=26;
   const H = top + CHARS.length*rowH + 6;
@@ -27,12 +51,12 @@ function alibiGraph(){
     const fc = {h:'#2F5A46',m:'#2D3B5E',n:'#8a7f73'}[fCls(ch.faction)];
     s += `<rect x="0" y="${y}" width="4" height="${rowH-8}" fill="${fc}"/><text class="nm" x="10" y="${y+18}">${esc(ch.name)}</text>`;
     s += `<line class="grid" x1="${L}" y1="${y+rowH-6}" x2="${W-R}" y2="${y+rowH-6}"/>`;
-    g.bars.forEach(b=>{ const x1=x(b.f), x2=x(b.t); const sub=b.type==='room2'; s+=`<rect x="${x1}" y="${y+(sub?12:5)}" width="${Math.max(3,x2-x1)}" height="${sub?10:20}" rx="2" fill="${GCOL[b.type]}" opacity="${sub?.9:.92}"><title>${esc(ch.name)} · ${b.f}~${b.t} · ${esc(b.l)}</title></rect>`; if(x2-x1>70 && !sub) s+=`<text x="${x1+5}" y="${y+19}" fill="${b.type==='unk'?'#5a534c':'#fff'}" font-size="10">${esc(b.l)}</text>`; });
+    g.bars.forEach(b=>{ const x1=x(b.f), x2=x(b.t); const sub=b.type==='room2'; s+=`<rect x="${x1}" y="${y+(sub?12:5)}" width="${Math.max(3,x2-x1)}" height="${sub?10:20}" rx="2" fill="${GCOL[b.type]}" opacity="${sub?.9:.92}"><title>${esc(ch.name)} · ${b.f}~${b.t} · ${esc(b.l)}</title></rect>`; if(x2-x1>44 && !sub) s+=`<text x="${x1+5}" y="${y+18}" fill="${b.type==='unk'?'#5a534c':'#fff'}" font-size="9.5">${esc(b.l.length>12?b.l.slice(0,11)+'…':b.l)}</text>`; });
     g.pts.forEach(p=>{ const X=x(p.at); s+=`<g><polygon points="${X},${y+2} ${X+6},${y+10} ${X},${y+18} ${X-6},${y+10}" fill="#C8322B" stroke="#fff" stroke-width="1.2"/><title>${esc(ch.name)} · ${p.at} · ${esc(p.l)}</title></g>`; });
   });
   s += `</svg></div>`;
   s += `<div class="legend">${Object.keys(GLBL).map(k=>`<span><i style="background:${k==='unk'?'repeating-linear-gradient(45deg,#efe7d3 0 2px,#a89f8c 2px 4px)':GCOL[k]}"></i>${GLBL[k]}</span>`).join('')}<span><i style="background:#C8322B;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)"></i>시점(전달·목격 등)</span></div>
-  <p class="hint" style="margin-top:8px">공개 진술에 나온 시간만 그렸습니다. 좌우로 밀어 볼 수 있고, 막대를 길게 누르면 내용이 보입니다.</p>`;
+  <p class="hint" style="margin-top:8px">공개 진술에 나온 시간만 그렸습니다. 좌우로 밀어서 보세요. 색은 있던 장소, 마름모(◆)는 특정 시점의 이동·목격입니다.</p>`;
   return s;
 }
 function yeongyuBlock(){

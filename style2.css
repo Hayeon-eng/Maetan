@@ -476,3 +476,6 @@ details summary::-webkit-details-marker{display:none}
 .truthbox .tbkv dd{margin:2px 0 0;font-size:13px;color:#c4c4c4}
 .fstage.light .fline1{color:#fff}
 .finale .btn{pointer-events:auto}
+
+/* 공간 구조도 */
+.floor{width:100%;min-width:320px;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:6px}
