@@ -44,24 +44,35 @@ function paneDeduce(ch){
   return html;
 }
 function bindDeduce(){ document.querySelectorAll('#pane textarea, #pane select').forEach(el=>el.addEventListener('input', ()=>{ const d=ded(); d[el.name]=el.value; store.set(K('ded'), d); })); }
-function submitDed(){ const d=ded(); if(!d.a2c){ alert('2번 범인을 선택하세요.'); return; } if(!confirm('제출하면 수정이 잠깁니다. 제출할까요?')) return; d.submitted=true; store.set(K('ded'),d); renderMe('deduce'); }
+function submitDed(){ const d=ded(); if(!d.a2c){ alert('2번 범인을 선택하세요.'); return; } if(!confirm('제출하면 수정이 잠깁니다. 제출할까요?')) return; d.submitted=true; store.set(K('ded'),d); if(SYNC&&me()){ const ch=byId(me()); sput(`subs/${ch.id}`, {id:ch.id,n:ch.name,a1:d.a1,a2c:d.a2c,a2m:d.a2m,a3p:d.a3p,a3t:d.a3t,a4:d.a4,t:null,l:null}); } renderMe('deduce'); }
 function unsubmit(){ if(confirm('제출을 취소하고 수정할까요? (채점 내용도 지워집니다)')){ const d=ded(); d.submitted=false; d.graded=false; d.grade={}; store.set(K('ded'),d); renderMe('deduce'); } }
+function whoTargetedMe(){
+  // 다른 플레이어가 ③에서 나를 지목했고, 스스로 '정답 인정(c2[0])'을 체크했으면 내 ④는 0점
+  const meId=me(); if(!meId) return false;
+  const subs=(SSTATE&&SSTATE.subs)||{};
+  return Object.values(subs).some(v=> v && v.id!==meId && v.a3p===meId && v.g && (v.g.c2||[])[0] );
+}
 function scoreOf(d){
   const R = HOST_RUBRIC; const g = d.grade||{};
-  const n = k => (g[k]||[]).filter(Boolean).length;
+  const on = (k,i)=> !!((g[k]||[])[i]);
   const culpritOk = d.a2c && byId(d.a2c)?.name===R[1].culprit;
-  const s1 = n('c0')>=1?1:0;
-  const s2 = culpritOk ? 1 : 0;            // 범인 이름만 맞으면 정답
-  const s3 = n('c2')>=1?1:0;
-  const s4 = n('c3')>=1?1:0;
-  const total = s1+s2+s3+s4;
-  // 엔딩 분기: PERFECT 4/4 · TRUE 범인+2개↑ · NORMAL 범인만 · BAD 범인 못맞힘
-  let label = 'bad';
+  // ① 둘 다 맞아야 1점
+  const s1 = (on('c0',0)&&on('c0',1)) ? 1 : 0;
+  // ② 범인(2점 중 1) + 동기(1) = 최대 2
+  const s2 = (culpritOk?1:0) + (culpritOk && on('c1',1) ? 1 : 0);
+  // ③ 남의 비밀 하나
+  const s3 = on('c2',0) ? 1 : 0;
+  // ④ 내 비밀: 아무도 나를 지목 안 했으면 1 (자가체크 c3[0]도 필요) / 지목당하면 0
+  const s4 = (!whoTargetedMe() && on('c3',0)) ? 1 : 0;
+  // ⑤ 치킨 하나만
+  const s5 = (on('c4',0)||on('c4',1)) ? 1 : 0;
+  const total = s1+s2+s3+s4+s5;  // 만점 6
+  let label='bad';
   if(!culpritOk) label='bad';
-  else if(total===4) label='perfect';
-  else if(total>=3) label='true';
+  else if(total>=6) label='perfect';
+  else if(total>=4) label='true';
   else label='normal';
-  return {s:[s1,s2,s3,s4], total, label, culpritOk};
+  return {s:[s1,s2,s3,s4,s5], total, max:6, label, culpritOk};
 }
 function renderGrade(){
   const ch = me() ? byId(me()) : null; if(!ch){ location.hash='#/'; return renderHome(); }
@@ -85,30 +96,36 @@ function renderGrade(){
 function tryEndingFromGrade(){ if($('#pin').value.trim()===META.roundCodes.ending){ const r=store.get('rounds',{}); r.ending=true; store.set('rounds',r); renderGrade(); } else { const m=$('#gmsg'); m.className='gmsg err'; m.textContent='코드가 맞지 않습니다'; $('#pin').value=''; } }
 function gradeForm(d){
   const R = HOST_RUBRIC; const g = d.grade||{}; const sc = scoreOf(d);
-  const box = (k,i,txt) => `<label class="chk"><input type="checkbox" data-k="${k}" data-i="${i}" ${(g[k]||[])[i]?'checked':''}><span>${esc(txt)}</span></label>`;
-  const myAns = {0:d.a1, 1:(d.a2c?byId(d.a2c).name+' · ':'')+d.a2m, 2:(d.a3p?byId(d.a3p).name+' · ':'')+d.a3t, 3:d.a4};
-  return `<div class="gintro"><b>이렇게 채점하세요</b><br>① 항목마다 내가 쓴 답이 위에 보여요.<br>② 아래 정답 목록 중 <b>내 답에 있는 것</b>에 체크하세요.<br>③ <b>하나만 맞아도 그 항목은 정답</b>이에요.<br>정답 전체 이야기는 <a href="#/ending" style="color:var(--amber)">엔딩북</a>에 있어요.</div>
-  ${R.map((r,k)=>`<div class="gstep">
-    <div class="gh"><span class="gn">${k+1}</span><b>${esc(r.item.replace(/^\d+\.\s*/,''))}</b><span class="gpt" id="gpt${k}">${sc.s[k]}</span></div>
-    <div class="myans"><label>✍️ 내가 쓴 답</label><div>${esc(myAns[k]||'(미작성)')}</div></div>
-    ${k===1?`<div class="key">진짜 범인은 <b>${esc(r.culprit)}</b>. 내가 고른 사람은 <b>${d.a2c?esc(byId(d.a2c).name):'(없음)'}</b> → ${sc.culpritOk?'<span style="color:var(--han)">맞았어요 ✅</span>':'<span style="color:var(--red)">틀렸어요 (범인을 못 맞히면 BAD END)</span>'}</div>`:''}
-    <div class="qlabel">내 답에 있는 내용 체크 (1개만 맞아도 정답)</div>
-    <div class="checks">${r.checks.map((c,i)=>box('c'+k,i,c)).join('')}</div>
-    <div class="itemscore">${sc.s[k]?'✅ 이 항목 정답':'아직 체크 안 됨 (하나만 맞아도 정답)'}</div>
-  </div>`).join('')}
-  <div style="text-align:center;margin:18px 0 6px"><button class="btn big" onclick="finishGrade()">내 엔딩 확인하기</button></div>`;
+  const box = (k,i,txt,disabled) => `<label class="chk ${disabled?'dis':''}"><input type="checkbox" data-k="${k}" data-i="${i}" ${(g[k]||[])[i]?'checked':''} ${disabled?'disabled':''}><span>${esc(txt)}</span></label>`;
+  const targeted = whoTargetedMe();
+  const myAns = {0:d.a1, 1:(d.a2c?byId(d.a2c).name+' · ':'')+d.a2m, 2:(d.a3p?byId(d.a3p).name+' — ':'')+d.a3t, 3:'(내 비밀은 남이 채점)', 4:d.a4};
+  return `<div class="gintro"><b>채점 방법</b><br>① 항목마다 내가 쓴 답이 위에 보여요.<br>② 그 아래에서 <b>내 답에 해당하는 것</b>에 솔직하게 체크하세요.<br>③ 점수는 자동 계산됩니다. 정답 전체는 이미 본 <b>사건의 진상</b>과 같습니다.</div>
+  ${R.map((r,k)=>{
+    const pts=r.pts||1;
+    return `<div class="gstep">
+    <div class="gh"><span class="gn">${['①','②','③','④','⑤'][k]}</span><b>${esc(r.item.replace(/^[①②③④⑤]\s*/,''))}</b><span class="gpt" id="gpt${k}">${sc.s[k]} / ${pts}</span></div>
+    ${k!==3?`<div class="myans"><label>✍️ 내가 쓴 답</label><div>${esc(myAns[k]||'(미작성)')}</div></div>`:''}
+    ${k===1?`<div class="key">진짜 범인은 <b>${esc(r.culprit)}</b>. 내가 고른 사람은 <b>${d.a2c?esc(byId(d.a2c).name):'(없음)'}</b> → ${sc.culpritOk?'<span style="color:var(--han)">맞았어요 ✅ (2점 중 1점 확보)</span>':'<span style="color:var(--red)">틀렸어요 (범인을 못 맞히면 BAD END)</span>'}</div>`:''}
+    ${k===3? (targeted
+        ? `<div class="key" style="color:var(--red)">누군가 게임 중 당신의 비밀을 밝혀냈습니다 → 이 항목 0점</div>`
+        : `<div class="key" style="color:var(--han)">아무도 당신을 지목하지 않았습니다. 아래 체크하면 1점.</div>`) : ''}
+    <div class="qlabel">${k===0?'둘 다 맞아야 1점':(k===1?'동기까지 맞혔으면 체크(+1점)':(r.need==='any'||k===4||k===2?'하나만 맞아도 1점':'해당 시 체크'))}</div>
+    <div class="checks">${r.checks.map((c,i)=>{ let dis=false; if(k===1&&i===0) dis=true; if(k===3&&targeted) dis=true; return box('c'+k,i,c,dis); }).join('')}</div>
+    <div class="itemscore" id="isc${k}">${sc.s[k]?('✅ '+sc.s[k]+'점 획득'):'아직 0점'}</div>
+  </div>`;}).join('')}
+  <div style="text-align:center;margin:18px 0 6px"><button class="btn big" onclick="finishGrade()">채점 완료 · 내 결과 보기</button></div>`;
 }
 function gradeResult(ch, d){
   const sc = scoreOf(d);
   const lbl = {perfect:'PERFECT END',true:'TRUE END',normal:'NORMAL END',bad:'BAD END'}[sc.label];
-  const sub = {perfect:'네 가지 진실을 모두 밝혀냈습니다. 완벽한 해결.',true:'범인을 지목하고 진실 대부분을 밝혔습니다.',normal:'범인은 맞혔지만 사건의 전모까지는 닿지 못했습니다.',bad:'범인을 놓쳤습니다. 진범은 유유히 회사를 빠져나갔습니다…'}[sc.label];
+  const sub = {perfect:'6점 만점! 모든 진실을 밝혀냈습니다.',true:'범인을 지목하고 대부분의 진실을 밝혔습니다.',normal:'범인은 맞혔지만 전모까지는 닿지 못했습니다.',bad:'범인을 놓쳤습니다. 진범은 유유히 빠져나갔습니다…'}[sc.label];
   return `<div class="result big-result ${sc.label}">
       <div class="rstamp">${sc.label==='bad'?'CASE OPEN':'CASE CLOSED'}</div>
       <div class="who">${esc(ch.name)}</div>
       <div class="big ${sc.label}">${lbl}</div>
-      <div class="sc">맞힌 진실 ${sc.total} / 4</div>
+      <div class="sc">${sc.total} / ${sc.max||6}점</div>
       <p class="sub">${sub}</p>
-      <div class="bars">${HOST_RUBRIC.map((r,k)=>`<div class="bar-row"><span>${esc(r.item)}</span><i class="v${String(sc.s[k]).replace('.','_')}"></i><b>${sc.s[k]?'○':'×'}</b></div>`).join('')}</div>
+      <div class="bars">${HOST_RUBRIC.map((r,k)=>`<div class="bar-row"><span>${esc(r.item)}</span><b>${sc.s[k]}/${r.pts||1}</b></div>`).join('')}</div>
     </div>
     <div class="panel">
       ${SYNC? `<div class="autosent ${store.get(K('autosent'))?'ok':''}">${store.get(K('autosent'))?'✅ 진행자에게 자동 전송되었습니다':'⏳ 진행자에게 전송 중… (실패 시 아래 버튼으로 보내세요)'}</div>`:''}
@@ -245,10 +262,15 @@ function renderFinaleStage(stage){
         </div>
       </div>`;
   } else if(stage===5){
+    // 채점 시작: 연출 닫고 채점 화면으로
+    closeFinale();
+    if(me()){ if(ded().submitted){ location.hash='#/grade'; renderGrade(); } else { location.hash='#/me/deduce'; renderMe('deduce'); } }
+    return;
+  } else if(stage===6){
     el.innerHTML = `<div class="fstage scroll">
         <div class="fline1">최종 결과</div>
         <div class="fsub">누가 진실에 가장 가까이 다가갔는가.</div>
-        <div class="frank-wrap">${finaleRanking() || '<p style=\"color:#bbb;text-align:center\">채점을 마친 사람이 아직 없습니다.</p>'}</div>
+        <div class="frank-wrap">${finaleRanking() || '<p style="color:#bbb;text-align:center">채점을 마친 사람이 아직 없습니다.</p>'}</div>
         <div style="text-align:center;margin-top:18px"><button class="btn" onclick="closeFinale()">닫기</button></div>
       </div>`;
   }
@@ -259,7 +281,7 @@ document.addEventListener('change', e=>{
   const t=e.target; if(t.matches && t.matches('.chk input')){ const d=ded(); d.grade[t.dataset.k]=d.grade[t.dataset.k]||[]; d.grade[t.dataset.k][+t.dataset.i]=t.checked; store.set(K('ded'),d); const sc=scoreOf(d); sc.s.forEach((v,k)=>{ const el=$('#gpt'+k); if(el) el.textContent=v; }); }
 });
 function finishGrade(){ const d=ded(); d.graded=true; store.set(K('ded'),d); renderGrade(); autoSubmit().then(()=>{ if(location.hash==='#/grade') renderGrade(); }); }
-async function autoSubmit(){ if(!SYNC||!me()) return; const ch=byId(me()); const d=ded(); const sc=scoreOf(d); const ok=await sput(`subs/${ch.id}`, {id:ch.id,n:ch.name,a1:d.a1,a2c:d.a2c,a2m:d.a2m,a3p:d.a3p,a3t:d.a3t,a4:d.a4,s:sc.s,t:sc.total,l:sc.label,at:new Date().toISOString().slice(0,16)}); store.set(K('autosent'), ok); }
+async function autoSubmit(){ if(!SYNC||!me()) return; const ch=byId(me()); const d=ded(); const sc=scoreOf(d); const ok=await sput(`subs/${ch.id}`, {id:ch.id,n:ch.name,a1:d.a1,a2c:d.a2c,a2m:d.a2m,a3p:d.a3p,a3t:d.a3t,a4:d.a4,g:d.grade,s:sc.s,t:sc.total,l:sc.label,at:new Date().toISOString().slice(0,16)}); store.set(K('autosent'), ok); }
 function unGrade(){ const d=ded(); d.graded=false; store.set(K('ded'),d); renderGrade(); }
 function b64e(s){ return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 function encodeSub(ch,d,sc){ return 'MM36:'+b64e(JSON.stringify({id:ch.id, n:ch.name, a1:d.a1, a2c:d.a2c, a2m:d.a2m, a3p:d.a3p, a3t:d.a3t, a4:d.a4, s:sc.s, t:sc.total, l:sc.label, at:new Date().toISOString().slice(0,16)})); }

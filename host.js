@@ -144,10 +144,10 @@ function liveBoard(){
 }
 function finaleControls(){
   const cur=(SSTATE&&+SSTATE.finaleStage)||0;
-  const steps=[[1,'① 판결 공개'],[2,'② 진범 공개'],[3,'③ 결말 공개'],[4,'④ 진상 공개'],[5,'⑤ 랭킹 공개']];
+  const steps=[[1,'① 판결 공개'],[2,'② 진범 공개'],[3,'③ 결말 공개'],[4,'④ 진상 공개'],[5,'⑤ 채점 시작'],[6,'⑥ 랭킹 공개']];
   return `<div class="finctrl">
     <div class="fc-h">🎬 최종 연출 · 진행자가 장면을 넘깁니다 (전원 폰 동시 전환)</div>
-    <p class="hint">전원 채점이 끝난 것을 확인한 뒤 ①부터 순서대로 누르세요. 누르면 모든 플레이어 폰이 같은 장면으로 바뀝니다.</p>
+    <p class="hint">①~④로 판결·진범·결말·진상을 보여준 뒤, ⑤ 채점 시작을 누르면 플레이어들이 채점합니다. 다 되면 ⑥ 랭킹 공개.</p>
     <div class="fc-steps">${steps.map(([n,l])=>`<button class="btn ${cur>=n?'done':(cur+1===n?'':'ghost')}" ${cur+1<n?'style=\"opacity:.5\"':''} onclick="setFinaleStage(${n})">${cur>=n?'✓ ':''}${l}</button>`).join('')}</div>
     <div style="text-align:right;margin-top:8px"><button class="lnk small" onclick="setFinaleStage(0)">연출 초기화</button></div>
   </div>`;
